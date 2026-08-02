@@ -71,8 +71,11 @@ class _LoginPageState extends State<LoginPage> {
 
         final roles = data['data']['roles'];
 
-        if (roles.contains('super_admin') || roles.contains('admin_rh')) {
-          context.goNamed('admin');
+        if (roles.contains('kiosk')) {
+          context.goNamed('kiosk');
+        } else if (roles.contains('super_admin') ||
+            roles.contains('admin_rh')) {
+          context.goNamed('kiosk');
         } else {
           context.goNamed('dashboard');
         }

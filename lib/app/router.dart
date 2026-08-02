@@ -1,5 +1,6 @@
 import 'package:attendance/auth/admin/admin_page.dart';
 import 'package:attendance/auth/admin/setup_admin_page.dart';
+import 'package:attendance/features/kiosk/kiosk_page.dart';
 import 'package:flutter/material.dart';
 
 import 'package:go_router/go_router.dart';
@@ -80,6 +81,13 @@ GoRoute(
   builder: (_, __) => const AdminPage(),
 ),
 
+
+GoRoute(
+ path:'/kiosk',
+ name:'kiosk',
+ builder:(context,state)
+ => const KioskPage(),
+),
 
       GoRoute(
         path: '/login',
