@@ -1,5 +1,6 @@
 import 'package:attendance/auth/admin/admin_page.dart';
 import 'package:attendance/auth/admin/setup_admin_page.dart';
+import 'package:attendance/employes/pages/employee_home_page.dart';
 import 'package:attendance/features/kiosk/kiosk_page.dart';
 import 'package:flutter/material.dart';
 
@@ -18,52 +19,34 @@ class AppRouter {
     initialLocation: '/',
 
     redirect: (context, state) async {
+      final prefs = await SharedPreferences.getInstance();
 
-  final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
 
-  final token = prefs.getString('token');
+      final isLoggedIn = token != null && token.isNotEmpty;
 
-  final isLoggedIn =
-      token != null && token.isNotEmpty;
+      final location = state.matchedLocation;
 
+      final isLogin = location == '/login';
 
-  final location = state.matchedLocation;
+      final isSplash = location == '/';
 
+      final isSetup = location == '/setup/admin';
 
-  final isLogin = location == '/login';
+      // Pas connecté
+      // Autoriser login + splash + setup
+      if (!isLoggedIn && !isLogin && !isSplash && !isSetup) {
+        return '/login';
+      }
 
-  final isSplash = location == '/';
+      // Déjà connecté
+      // Empêcher login/setup après connexion
+      if (isLoggedIn && (isLogin || isSetup)) {
+        return '/dashboard';
+      }
 
-
-  final isSetup = location == '/setup/admin';
-
-
-
-  // Pas connecté
-  // Autoriser login + splash + setup
-  if (!isLoggedIn &&
-      !isLogin &&
-      !isSplash &&
-      !isSetup) {
-
-    return '/login';
-
-  }
-
-
-
-  // Déjà connecté
-  // Empêcher login/setup après connexion
-  if (isLoggedIn &&
-      (isLogin || isSetup)) {
-
-    return '/dashboard';
-
-  }
-
-
-  return null;
-},
+      return null;
+    },
 
     routes: [
       GoRoute(path: '/', name: 'splash', builder: (_, _) => const SplashPage()),
@@ -71,23 +54,21 @@ class AppRouter {
       GoRoute(
         path: '/setup/admin',
         name: 'setup-admin',
-        builder: (context, state) => const SetupAdminPage(),
+        builder: (context, state) => const EmployeeHomePage(),
+        // builder: (context, state) => const SetupAdminPage(),
       ),
 
+      GoRoute(
+        path: '/admin',
+        name: 'admin',
+        builder: (_, __) => const AdminPage(),
+      ),
 
-GoRoute(
-  path: '/admin',
-  name: 'admin',
-  builder: (_, __) => const AdminPage(),
-),
-
-
-GoRoute(
- path:'/kiosk',
- name:'kiosk',
- builder:(context,state)
- => const KioskPage(),
-),
+      GoRoute(
+        path: '/kiosk',
+        name: 'kiosk',
+        builder: (context, state) => const KioskPage(),
+      ),
 
       GoRoute(
         path: '/login',
