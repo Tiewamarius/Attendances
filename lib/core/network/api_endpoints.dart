@@ -1,10 +1,8 @@
 class ApiConfig {
   ApiConfig._();
- static const String setupAdmin =
-      'http://localhost:8000/api/setup/admin';
-      
-  // static const String baseUrl = "http://10.0.2.2:8000/api/v1";
-  static const String baseUrl = "http://localhost:8000/api/v1";
+ static const String setupAdmin ='https://ekklesiaciel.com/api/setup/admin';
+
+  static const String baseUrl = "https://ekklesiaciel.com/api/v1";
 
   // AUTH
   static const String login = '$baseUrl/auth/login';

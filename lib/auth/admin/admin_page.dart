@@ -125,6 +125,7 @@ class _AdminPageState extends State<AdminPage> {
           ),
         ),
 
+
         const SizedBox(height: 30),
 
         _menuButton(Icons.dashboard, "Dashboard", 'dashboard'),
@@ -180,18 +181,18 @@ class _AdminPageState extends State<AdminPage> {
           Text(
             "Bienvenue ${user?['name'] ?? ''}",
 
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 20),
 
           Expanded(
             child: GridView.count(
               crossAxisCount: MediaQuery.of(context).size.width > 900 ? 4 : 2,
 
-              crossAxisSpacing: 20,
+              crossAxisSpacing: 10,
 
-              mainAxisSpacing: 20,
+              mainAxisSpacing: 10,
 
               children: [
                 _card(Icons.people, "Employés", Colors.blue, 'employees'),
@@ -226,7 +227,7 @@ class _AdminPageState extends State<AdminPage> {
       child: Card(
         elevation: 5,
 
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
 
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

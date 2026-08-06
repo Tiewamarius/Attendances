@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:mobile_scanner/mobile_scanner.dart';
 class KioskPage extends StatefulWidget {
   const KioskPage({super.key});
 
@@ -8,6 +8,15 @@ class KioskPage extends StatefulWidget {
 }
 
 class _KioskPageState extends State<KioskPage> {
+  final MobileScannerController cameraController = MobileScannerController(
+  facing: CameraFacing.front,
+);
+
+  @override
+  void dispose() {
+    cameraController.dispose();
+    super.dispose();
+  }
   int selectedMode = 0;
 
   @override
@@ -80,12 +89,14 @@ class _KioskPageState extends State<KioskPage> {
                       ],
                     ),
                   ),
+                  
                 ],
               ),
 
               const SizedBox(height: 50),
 
-              Expanded(child: _scannerZone(isTablet)),
+              Expanded(child: _scannerZone(isTablet)
+              ),
             ],
           ),
         ),
@@ -96,11 +107,11 @@ class _KioskPageState extends State<KioskPage> {
   Widget _header() {
     return Column(
       children: [
-        const CircleAvatar(
-          radius: 45,
+        // const CircleAvatar(
+        //   radius: 45,
 
-          child: Icon(Icons.fingerprint, size: 50),
-        ),
+        //   child: Icon(Icons.fingerprint, size: 50),
+        // ),
 
         const SizedBox(height: 20),
 
@@ -121,51 +132,40 @@ class _KioskPageState extends State<KioskPage> {
     );
   }
 
-  Widget _scannerZone(bool tablet) {
-    return Container(
-      width: tablet ? 500 : double.infinity,
+ Widget _scannerZone(bool tablet) {
+  final double size = tablet ? 350 : 200;
 
+  return Center(
+    child: Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: Colors.black12,
-
         borderRadius: BorderRadius.circular(30),
-
-        border: Border.all(color: Colors.grey, width: 2),
+        border: Border.all(color: Colors.blue, width: 2),
       ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: selectedMode == 0
+            ? MobileScanner(
+                controller: cameraController,
+                onDetect: (capture) {
+                  final barcode = capture.barcodes.first;
 
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-
-          children: [
-            Icon(
-              selectedMode == 0 ? Icons.qr_code_scanner : Icons.qr_code,
-
-              size: 100,
-
-              color: Colors.blue,
-            ),
-
-            const SizedBox(height: 25),
-
-            Text(
-              selectedMode == 0
-                  ? "Scanner votre code"
-                  : "Placez le QR devant la caméra",
-
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
-
-            const SizedBox(height: 15),
-
-            const Text("Caméra active", style: TextStyle(color: Colors.green)),
-          ],
-        ),
+                  if (barcode.rawValue != null) {
+                    debugPrint(barcode.rawValue);
+                  }
+                },
+              )
+            : const Center(
+                child: Text(
+                  "Placez le QR devant la caméra",
+                  style: TextStyle(fontSize: 20),
+                ),
+              ),
       ),
-    );
-  }
-
-  void _showPinDialog() {
+    ),
+  );
+}  void _showPinDialog() {
     final controller = TextEditingController();
 
     showDialog(

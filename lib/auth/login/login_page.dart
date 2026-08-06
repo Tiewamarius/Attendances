@@ -15,12 +15,23 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
+
   final passwordController = TextEditingController();
 
   bool obscurePassword = true;
+
   bool loading = false;
 
   Future<void> login() async {
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Veuillez remplir tous les champs")),
+      );
+
+      return;
+    }
+
     setState(() {
       loading = true;
     });
@@ -28,73 +39,103 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final url = '${ApiConfig.baseUrl}/auth/login';
 
-      debugPrint("========== LOGIN DEBUG ==========");
-      debugPrint("URL : $url");
-      debugPrint("EMAIL : ${emailController.text.trim()}");
+      debugPrint("LOGIN URL : $url");
 
       final response = await http.post(
         Uri.parse(url),
 
-        headers: {
+        headers: const {
           'Accept': 'application/json',
 
           'Content-Type': 'application/json',
         },
 
         body: jsonEncode({
-          'email': emailController.text.trim(),
+          "email": emailController.text.trim(),
 
-          'password': passwordController.text.trim(),
+          "password": passwordController.text.trim(),
         }),
       );
 
-      debugPrint("STATUS CODE : ${response.statusCode}");
+      debugPrint("STATUS : ${response.statusCode}");
 
-      debugPrint("BODY RESPONSE : ${response.body}");
+      debugPrint(response.body);
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        final token = data['data']['token'];
+        final result = data['data'];
 
-        debugPrint("TOKEN RECU : $token");
+        final token = result['token'];
+
+        final roles = result['roles'] != null
+            ? List<String>.from(result['roles'])
+            : [];
 
         final prefs = await SharedPreferences.getInstance();
 
         await prefs.setString('token', token);
 
-        await prefs.setString('user', jsonEncode(data['data']['user']));
+        await prefs.setString('user', jsonEncode(result['user']));
 
-        debugPrint("Utilisateur sauvegardé");
+        await prefs.setString('roles', jsonEncode(roles));
+
+        String homeRoute = 'dashboard';
+
+        if (roles.contains('kiosk')) {
+          homeRoute = 'kiosk';
+        } else if (roles.contains('super_admin') ||
+            roles.contains('admin_rh')) {
+          homeRoute = 'admin';
+        } else if (roles.contains('employee')) {
+          homeRoute = 'employee-home';
+        }
+
+        await prefs.setString('home_route', homeRoute);
 
         if (!mounted) return;
 
-        final roles = data['data']['roles'];
+        switch (homeRoute) {
+          case 'kiosk':
+            context.goNamed('kiosk');
 
-        if (roles.contains('kiosk')) {
-          context.goNamed('kiosk');
-        } else if (roles.contains('super_admin') ||
-            roles.contains('admin_rh')) {
-          context.goNamed('kiosk');
-        } else {
-          context.goNamed('dashboard');
+            break;
+
+          case 'admin':
+            context.goNamed('admin');
+
+            break;
+
+          case 'employee-home':
+
+            /*
+            Pour l'instant votre router
+            n'a pas encore employee-home
+
+            donc on envoie vers dashboard
+            */
+
+            context.goNamed('dashboard');
+
+            break;
+
+          default:
+            context.goNamed('dashboard');
         }
       } else {
-        debugPrint("ERREUR API : ${data['message']}");
-
-        throw Exception(data['message'] ?? "Erreur inconnue");
+        throw Exception(data['message'] ?? "Identifiants incorrects");
       }
     } catch (e, stackTrace) {
-      debugPrint("========== LOGIN ERROR ==========");
+      debugPrint("LOGIN ERROR : $e");
 
-      debugPrint("Erreur : $e");
-
-      debugPrint("STACK TRACE : $stackTrace");
+      debugPrint(stackTrace.toString());
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst("Exception:", "").trim()),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -106,14 +147,24 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
+  void dispose() {
+    emailController.dispose();
+
+    passwordController.dispose();
+
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
-    final isMobile = width < 768;
+    final mobile = width < 768;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      body: SafeArea(child: isMobile ? _mobileLayout() : _desktopLayout()),
+
+      body: SafeArea(child: mobile ? _mobileLayout() : _desktopLayout()),
     );
   }
 
@@ -122,53 +173,50 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         Expanded(
           flex: 6,
+
           child: Container(
             color: const Color(0xFF0F172A),
-            padding: const EdgeInsets.all(50),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset('assets/images/logo_Splash.jpg', height: 120),
 
-                const SizedBox(height: 30),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
 
-                const Text(
-                  'Système de Gestion de Présence',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
+                children: [
+                  Image.asset('assets/images/logo_Splash.jpg', height: 120),
+
+                  const SizedBox(height: 30),
+
+                  const Text(
+                    "Système de Gestion de Présence",
+
+                    style: TextStyle(
+                      color: Colors.white,
+
+                      fontSize: 34,
+
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                const Text(
-                  'Pointage des employés en temps réel\nGestion RH centralisée',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 18),
-                ),
+                  const Text(
+                    "Pointage employés en temps réel\nGestion RH centralisée",
 
-                const SizedBox(height: 40),
+                    textAlign: TextAlign.center,
 
-                Expanded(
-                  child: Image.asset(
-                    'assets/images/logo_Splash.jpg',
-                    fit: BoxFit.contain,
+                    style: TextStyle(color: Colors.white70, fontSize: 18),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
 
         Expanded(
           flex: 4,
-          child: Container(
-            color: Colors.white,
-            child: Center(child: SizedBox(width: 450, child: _loginForm())),
-          ),
+
+          child: Center(child: SizedBox(width: 450, child: _loginForm())),
         ),
       ],
     );
@@ -177,6 +225,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget _mobileLayout() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
+
       child: Column(
         children: [
           const SizedBox(height: 40),
@@ -198,39 +247,33 @@ class _LoginPageState extends State<LoginPage> {
   Widget _loginForm() {
     return Card(
       elevation: 8,
-      shadowColor: Colors.black12,
+
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+
       child: Padding(
         padding: const EdgeInsets.all(30),
+
         child: Column(
           mainAxisSize: MainAxisSize.min,
+
           children: [
             const Text(
-              'Connexion',
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
-            ),
+              "Connexion",
 
-            const SizedBox(height: 10),
-
-            Text(
-              'Accédez à votre espace RH',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 30),
 
             TextField(
               controller: emailController,
-              decoration: InputDecoration(
-                labelText: 'Email',
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+
+              decoration: const InputDecoration(
+                labelText: "Email",
+
+                prefixIcon: Icon(Icons.email),
+
+                border: OutlineInputBorder(),
               ),
             ),
 
@@ -238,23 +281,27 @@ class _LoginPageState extends State<LoginPage> {
 
             TextField(
               controller: passwordController,
+
               obscureText: obscurePassword,
+
               decoration: InputDecoration(
-                labelText: 'Mot de passe',
-                prefixIcon: const Icon(Icons.lock_outline),
+                labelText: "Mot de passe",
+
+                prefixIcon: const Icon(Icons.lock),
+
                 suffixIcon: IconButton(
                   icon: Icon(
                     obscurePassword ? Icons.visibility_off : Icons.visibility,
                   ),
+
                   onPressed: () {
                     setState(() {
                       obscurePassword = !obscurePassword;
                     });
                   },
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+
+                border: const OutlineInputBorder(),
               ),
             ),
 
@@ -262,40 +309,26 @@ class _LoginPageState extends State<LoginPage> {
 
             SizedBox(
               width: double.infinity,
+
               height: 55,
+
               child: ElevatedButton(
                 onPressed: loading ? null : login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F172A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+
                 child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Se connecter',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                    ? const CircularProgressIndicator()
+                    : const Text("Se connecter"),
               ),
             ),
-            const SizedBox(height: 20),
 
             TextButton.icon(
               onPressed: () {
                 context.goNamed('setup-admin');
               },
 
-              icon: const Icon(
-                Icons.settings_outlined,
-                color: Color(0xFF0F172A),
-              ),
+              icon: const Icon(Icons.settings),
 
-              label: const Text(
-                "Paramètres / Première configuration",
-                style: TextStyle(color: Color(0xFF0F172A), fontSize: 14),
-              ),
+              label: const Text("Paramètres / Première configuration"),
             ),
           ],
         ),

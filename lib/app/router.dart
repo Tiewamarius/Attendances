@@ -1,21 +1,26 @@
-import 'package:attendance/auth/admin/admin_page.dart';
+import 'package:attendance/adminfolder/screens/main_screen.dart';
 import 'package:attendance/auth/admin/setup_admin_page.dart';
-import 'package:attendance/employes/pages/employee_home_page.dart';
 import 'package:attendance/features/kiosk/kiosk_page.dart';
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/login/login_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../features/splash_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AppRouter {
   AppRouter._();
 
+  static Future<String?> getHomeRoute() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    return prefs.getString('home_route');
+  }
+
   static final GoRouter router = GoRouter(
     debugLogDiagnostics: true,
+
     initialLocation: '/',
 
     redirect: (context, state) async {
@@ -27,100 +32,147 @@ class AppRouter {
 
       final location = state.matchedLocation;
 
-      final isLogin = location == '/login';
-
       final isSplash = location == '/';
+
+      final isLogin = location == '/login';
 
       final isSetup = location == '/setup/admin';
 
-      // Pas connecté
-      // Autoriser login + splash + setup
-      if (!isLoggedIn && !isLogin && !isSplash && !isSetup) {
+      /*
+      ==========================
+      NON CONNECTE
+      ==========================
+      */
+
+      if (!isLoggedIn) {
+        if (isSplash || isLogin || isSetup) {
+          return null;
+        }
+
         return '/login';
       }
 
-      // Déjà connecté
-      // Empêcher login/setup après connexion
-      if (isLoggedIn && (isLogin || isSetup)) {
-        return '/dashboard';
+      /*
+      ==========================
+      CONNECTE
+      ==========================
+      */
+
+      if (isSplash || isLogin) {
+        final home = await getHomeRoute();
+
+        switch (home) {
+          case 'admin':
+            return '/admin';
+
+          case 'kiosk':
+            return '/kiosk';
+
+          case 'employee-home':
+            return '/dashboard';
+
+          default:
+            return '/dashboard';
+        }
       }
 
       return null;
     },
 
     routes: [
-      GoRoute(path: '/', name: 'splash', builder: (_, _) => const SplashPage()),
-
       GoRoute(
-        path: '/setup/admin',
-        name: 'setup-admin',
-        builder: (context, state) => const EmployeeHomePage(),
-        // builder: (context, state) => const SetupAdminPage(),
-      ),
+        path: '/',
 
-      GoRoute(
-        path: '/admin',
-        name: 'admin',
-        builder: (_, __) => const AdminPage(),
-      ),
+        name: 'splash',
 
-      GoRoute(
-        path: '/kiosk',
-        name: 'kiosk',
-        builder: (context, state) => const KioskPage(),
+        builder: (_, _) => const SplashPage(),
       ),
 
       GoRoute(
         path: '/login',
+
         name: 'login',
+
         builder: (_, _) => const LoginPage(),
       ),
 
       GoRoute(
+        path: '/setup/admin',
+
+        name: 'setup-admin',
+
+        builder: (_, _) => const SetupAdminPage(),
+      ),
+
+      GoRoute(
+        path: '/admin',
+
+        name: 'admin',
+
+        builder: (_, _) => const MainScreen(),
+      ),
+
+      GoRoute(
+        path: '/kiosk',
+
+        name: 'kiosk',
+
+        builder: (_, _) => const KioskPage(),
+      ),
+
+      GoRoute(
         path: '/dashboard',
+
         name: 'dashboard',
+
         builder: (_, _) => const DashboardPage(),
       ),
 
-      // Employés
       GoRoute(
         path: '/employees',
+
         name: 'employees',
+
         builder: (_, _) => const Placeholder(),
       ),
 
-      // Présence
       GoRoute(
         path: '/attendance',
+
         name: 'attendance',
+
         builder: (_, _) => const Placeholder(),
       ),
 
-      // Congés
       GoRoute(
         path: '/leaves',
+
         name: 'leaves',
+
         builder: (_, _) => const Placeholder(),
       ),
 
-      // Permissions
       GoRoute(
         path: '/permissions',
+
         name: 'permissions',
+
         builder: (_, _) => const Placeholder(),
       ),
 
-      // Rapports
       GoRoute(
         path: '/reports',
+
         name: 'reports',
+
         builder: (_, _) => const Placeholder(),
       ),
 
-      // Profil
       GoRoute(
         path: '/profile',
+
         name: 'profile',
+
         builder: (_, _) => const Placeholder(),
       ),
     ],
@@ -130,6 +182,7 @@ class AppRouter {
         body: Center(
           child: Text(
             'Route introuvable\n${state.uri}',
+
             textAlign: TextAlign.center,
           ),
         ),

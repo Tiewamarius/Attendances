@@ -67,6 +67,7 @@ dependencies:
   intl: ^0.20.2
   splashscreen: ^2.0.0
   http: ^1.6.0
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:
