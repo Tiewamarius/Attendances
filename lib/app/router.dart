@@ -1,4 +1,5 @@
-import 'package:attendance/adminfolder/screens/main_screen.dart';
+import 'package:attendance/auth/admin/admin_page.dart';
+import 'package:attendance/auth/admin/console_page.dart';
 import 'package:attendance/auth/admin/setup_admin_page.dart';
 import 'package:attendance/features/kiosk/kiosk_page.dart';
 import 'package:flutter/material.dart';
@@ -109,7 +110,7 @@ class AppRouter {
 
         name: 'admin',
 
-        builder: (_, _) => const MainScreen(),
+        builder: (_, _) => const ConsolePage(),
       ),
 
       GoRoute(
