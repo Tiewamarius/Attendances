@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/login/login_page.dart';
-import '../dashboard/dashboard_page.dart';
+import '../auth/employes/dashboard/dashboard_page.dart';
 import '../features/splash_page.dart';
 
 class AppRouter {
@@ -112,6 +112,12 @@ class AppRouter {
 
         builder: (_, _) => const ConsolePage(),
       ),
+
+      // GoRoute(
+      //   path: '/admin/settings', 
+      //   name: 'admin-settings',
+      //   builder: (_, __) => const  ConsolePage()
+      //   ),
 
       GoRoute(
         path: '/kiosk',

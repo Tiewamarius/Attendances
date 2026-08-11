@@ -1,8 +1,12 @@
-import 'package:attendance/auth/admin/pages/emplyes_page.dart';
+import 'dart:convert'; // Nécessaire pour jsonDecode
+import 'package:attendance/auth/admin/pages/admin_settings_page.dart';
+import 'package:attendance/auth/admin/pages/employes_page.dart';
 import 'package:attendance/auth/admin/widgets/navbar_widget.dart';
 import 'package:attendance/auth/admin/widgets/sidebar.dart';
 import 'package:attendance/constante/colors.dart' as colors;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart'; // Nécessaire pour context.goNamed
+import 'package:shared_preferences/shared_preferences.dart'; // Nécessaire pour SharedPreferences
 
 class DashBoardDesktopPage extends StatefulWidget {
   const DashBoardDesktopPage({super.key});
@@ -12,6 +16,33 @@ class DashBoardDesktopPage extends StatefulWidget {
 }
 
 class _DashBoardDesktopPageState extends State<DashBoardDesktopPage> {
+  Map<String, dynamic>? user;
+
+  @override
+  void initState() {
+    super.initState();
+    loadUser();
+  }
+
+  Future<void> loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('user');
+
+    if (data != null) {
+      setState(() {
+        user = jsonDecode(data);
+      });
+    }
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    if (!mounted) return;
+    context.goNamed('login');
+  }
+
   String selectedPage = '/admin';
 
   void _onSelectPage(String page) {
@@ -20,13 +51,17 @@ class _DashBoardDesktopPageState extends State<DashBoardDesktopPage> {
     });
   }
 
-  // La méthode est maintenant placée à l'intérieur de la classe d'état
   Widget _buildSelectedPageContent() {
     switch (selectedPage) {
       case '/admin':
         return const Text('Tableau de bord principal');
+
+      case '/admins/settings':
+        return const AdminSettingsPage();
+        
       case '/employees':
-        return EmployeesPage();
+        return const EmployeesPage();
+
       case '/attendance':
         return const Text('Gestion des présences');
       default:
@@ -47,7 +82,7 @@ class _DashBoardDesktopPageState extends State<DashBoardDesktopPage> {
           Expanded(
             child: Column(
               children: [
-                const NavbarWidget(),
+                NavbarWidget(selectedPage: '', onSelectPage:_onSelectPage,),
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(2.0),

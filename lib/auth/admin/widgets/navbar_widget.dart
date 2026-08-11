@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 
-class NavbarWidget extends StatelessWidget implements PreferredSizeWidget {
-  const NavbarWidget({super.key});
+class NavbarWidget extends StatefulWidget implements PreferredSizeWidget {
+  final Function(String) onSelectPage;
+  final String selectedPage;
+
+  const NavbarWidget({
+    super.key,
+    required this.selectedPage,
+    required this.onSelectPage,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(70);
 
+  @override
+  State<NavbarWidget> createState() => _NavbarWidgetState();
+}
+
+class _NavbarWidgetState extends State<NavbarWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -14,9 +26,9 @@ class NavbarWidget extends StatelessWidget implements PreferredSizeWidget {
       color: Colors.white,
       child: Row(
         children: [
-          // Barre de recherche
-          
-           Container(
+          // Barre de recherche (Encadrée dans un Expanded pour éviter les erreurs de débordement)
+          Expanded(
+            child: Container(
               constraints: const BoxConstraints(maxWidth: 450),
               height: 42,
               decoration: BoxDecoration(
@@ -34,11 +46,13 @@ class NavbarWidget extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ),
+          ),
           
           const SizedBox(width: 16),
 
           // Actions de droite (Mode sombre, Panier, Notifications, Grille, Avatar)
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildIconButton(icon: Icons.dark_mode_outlined, onPressed: () {}),
               const SizedBox(width: 12),
@@ -49,11 +63,17 @@ class NavbarWidget extends StatelessWidget implements PreferredSizeWidget {
               _buildIconButton(icon: Icons.grid_view_rounded, onPressed: () {}),
               const SizedBox(width: 20),
               
-              // Avatar utilisateur
-              const CircleAvatar(
-                radius: 18,
-                backgroundImage: NetworkImage(
-                  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+              // Avatar utilisateur cliquable avec redirection vers les paramètres
+              InkWell(
+                onTap: () {
+                  widget.onSelectPage('/admins/settings');
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: const CircleAvatar(
+                  radius: 18,
+                  backgroundImage: NetworkImage(
+                    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+                  ),
                 ),
               ),
             ],
@@ -103,7 +123,7 @@ class NavbarWidget extends StatelessWidget implements PreferredSizeWidget {
             ),
             constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
             child: const Text(
-              '1',
+              '0',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10,
@@ -129,7 +149,9 @@ class NavbarWidget extends StatelessWidget implements PreferredSizeWidget {
           ),
           child: IconButton(
             icon: const Icon(Icons.notifications_none_rounded, color: Colors.grey, size: 20),
-            onPressed: () {},
+            onPressed: () {
+              widget.onSelectPage('/admins/settings');
+            },
           ),
         ),
         const Positioned(

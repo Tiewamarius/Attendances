@@ -14,7 +14,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final emailController = TextEditingController();
+  final loginController = TextEditingController();
 
   final passwordController = TextEditingController();
 
@@ -23,7 +23,7 @@ class _LoginPageState extends State<LoginPage> {
   bool loading = false;
 
   Future<void> login() async {
-    if (emailController.text.trim().isEmpty ||
+    if (loginController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Veuillez remplir tous les champs")),
@@ -51,7 +51,7 @@ class _LoginPageState extends State<LoginPage> {
         },
 
         body: jsonEncode({
-          "email": emailController.text.trim(),
+          "login": loginController.text.trim(),
 
           "password": passwordController.text.trim(),
         }),
@@ -148,7 +148,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    emailController.dispose();
+    loginController.dispose();
 
     passwordController.dispose();
 
@@ -266,10 +266,10 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 30),
 
             TextField(
-              controller: emailController,
+              controller: loginController,
 
               decoration: const InputDecoration(
-                labelText: "Email",
+                labelText: "Email/N° Telephone)",
 
                 prefixIcon: Icon(Icons.email),
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 
@@ -15,6 +16,7 @@ class SetupAdminPage extends StatefulWidget {
 class _SetupAdminPageState extends State<SetupAdminPage> {
   final nameController = TextEditingController();
   final emailController = TextEditingController();
+  final phoneController = TextEditingController();
   final passwordController = TextEditingController();
 
   bool loading = false;
@@ -44,6 +46,8 @@ class _SetupAdminPageState extends State<SetupAdminPage> {
           "name": nameController.text.trim(),
 
           "email": emailController.text.trim(),
+
+          "phone": phoneController.text.trim(),
 
           "password": passwordController.text.trim(),
         }),
@@ -225,6 +229,23 @@ class _SetupAdminPageState extends State<SetupAdminPage> {
 
                 prefixIcon: const Icon(Icons.person),
 
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.number, // Ouvre le clavier numérique
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter
+                    .digitsOnly, // N'autorise que les chiffres (0-9)
+              ],
+              decoration: InputDecoration(
+                labelText: "N° Telephone",
+                prefixIcon: const Icon(Icons.phone),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
