@@ -1,21 +1,21 @@
 import 'dart:convert'; // Nécessaire pour jsonDecode
-import 'package:attendance/auth/admin/pages/admin_settings_page.dart';
-import 'package:attendance/auth/admin/pages/employes_page.dart';
-import 'package:attendance/auth/admin/widgets/navbar_widget.dart';
-import 'package:attendance/auth/admin/widgets/sidebar.dart';
+import 'package:attendance/adminfolder/pages/admin_settings_page.dart';
+import 'package:attendance/adminfolder/pages/employes_page.dart';
+import 'package:attendance/adminfolder/widgets/navbar_widget.dart';
+import 'package:attendance/adminfolder/widgets/sidebar.dart';
 import 'package:attendance/constante/colors.dart' as colors;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart'; // Nécessaire pour context.goNamed
 import 'package:shared_preferences/shared_preferences.dart'; // Nécessaire pour SharedPreferences
 
-class DashBoardDesktopPage extends StatefulWidget {
-  const DashBoardDesktopPage({super.key});
+class DesktopConsole extends StatefulWidget {
+  const DesktopConsole({super.key});
 
   @override
-  State<DashBoardDesktopPage> createState() => _DashBoardDesktopPageState();
+  State<DesktopConsole> createState() => _DesktopConsoleState();
 }
 
-class _DashBoardDesktopPageState extends State<DashBoardDesktopPage> {
+class _DesktopConsoleState extends State<DesktopConsole> {
   Map<String, dynamic>? user;
 
   @override

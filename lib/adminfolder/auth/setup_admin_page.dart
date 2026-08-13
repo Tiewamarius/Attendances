@@ -198,7 +198,7 @@ class _SetupAdminPageState extends State<SetupAdminPage> {
 
       shadowColor: Colors.black12,
 
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
 
       child: Padding(
         padding: const EdgeInsets.all(30),

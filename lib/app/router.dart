@@ -1,13 +1,13 @@
-import 'package:attendance/auth/admin/admin_page.dart';
-import 'package:attendance/auth/admin/console_page.dart';
-import 'package:attendance/auth/admin/setup_admin_page.dart';
+import 'package:attendance/adminfolder/console_page.dart';
+import 'package:attendance/adminfolder/auth/setup_admin_page.dart';
+import 'package:attendance/employes/employee_console_page.dart';
+import 'package:attendance/employes/pages/employee_home_page.dart.dart';
 import 'package:attendance/features/kiosk/kiosk_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../auth/login/login_page.dart';
-import '../auth/employes/dashboard/dashboard_page.dart';
+import '../adminfolder/auth/login_page.dart';
 import '../features/splash_page.dart';
 
 class AppRouter {
@@ -69,8 +69,8 @@ class AppRouter {
           case 'kiosk':
             return '/kiosk';
 
-          case 'employee-home':
-            return '/dashboard';
+          case 'employees':
+            return '/employees';
 
           default:
             return '/dashboard';
@@ -113,12 +113,6 @@ class AppRouter {
         builder: (_, _) => const ConsolePage(),
       ),
 
-      // GoRoute(
-      //   path: '/admin/settings', 
-      //   name: 'admin-settings',
-      //   builder: (_, __) => const  ConsolePage()
-      //   ),
-
       GoRoute(
         path: '/kiosk',
 
@@ -128,19 +122,11 @@ class AppRouter {
       ),
 
       GoRoute(
-        path: '/dashboard',
-
-        name: 'dashboard',
-
-        builder: (_, _) => const DashboardPage(),
-      ),
-
-      GoRoute(
         path: '/employees',
 
         name: 'employees',
 
-        builder: (_, _) => const Placeholder(),
+        builder: (_, _) => const EmployeeConsolePage(),
       ),
 
       GoRoute(

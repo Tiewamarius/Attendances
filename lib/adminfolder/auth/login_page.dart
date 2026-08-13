@@ -88,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
             roles.contains('admin_rh')) {
           homeRoute = 'admin';
         } else if (roles.contains('employee')) {
-          homeRoute = 'employee-home';
+          homeRoute = 'employees';
         }
 
         await prefs.setString('home_route', homeRoute);
@@ -106,16 +106,9 @@ class _LoginPageState extends State<LoginPage> {
 
             break;
 
-          case 'employee-home':
+          case 'employees':
 
-            /*
-            Pour l'instant votre router
-            n'a pas encore employee-home
-
-            donc on envoie vers dashboard
-            */
-
-            context.goNamed('dashboard');
+            context.goNamed('employees');
 
             break;
 
@@ -314,7 +307,15 @@ class _LoginPageState extends State<LoginPage> {
 
               child: ElevatedButton(
                 onPressed: loading ? null : login,
+style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
 
+                  foregroundColor: Colors.white,
+
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: loading
                     ? const CircularProgressIndicator()
                     : const Text("Se connecter"),
