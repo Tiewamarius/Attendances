@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'package:attendance/employes/pages/employee_history_page.dart';
-import 'package:attendance/employes/pages/planning_pages.dart';
 import 'package:flutter/material.dart';
 
 class EmployeHome extends StatefulWidget {

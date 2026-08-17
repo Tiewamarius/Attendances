@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:attendance/core/res/responsive.dart';
 
 class NavbarWidget extends StatefulWidget implements PreferredSizeWidget {
   final Function(String) onSelectPage;
   final String selectedPage;
+  final VoidCallback? onMenuPressed;
+  final String userRole; // 'AD', 'RH', 'MG'
+  final String? userAvatarUrl; // URL de la photo de profil (null ou vide si non définie)
 
   const NavbarWidget({
     super.key,
     required this.selectedPage,
     required this.onSelectPage,
+    this.onMenuPressed,
+    this.userRole = 'AD',
+    this.userAvatarUrl,
   });
 
   @override
@@ -18,63 +25,115 @@ class NavbarWidget extends StatefulWidget implements PreferredSizeWidget {
 }
 
 class _NavbarWidgetState extends State<NavbarWidget> {
+  Map<String, dynamic> _getRoleDetails(String role) {
+    switch (role.toUpperCase()) {
+      case 'RH':
+        return {'label': 'RH', 'color': Colors.green, 'title': 'Ressources Humaines'};
+      case 'MG':
+        return {'label': 'MG', 'color': Colors.orange, 'title': 'Manager'};
+      case 'AD':
+      default:
+        return {'label': 'AD', 'color': Colors.indigo, 'title': 'Administrateur'};
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = Responsive.isMobile(context);
+    final roleInfo = _getRoleDetails(widget.userRole);
+
+    final bool hasAvatar = widget.userAvatarUrl != null && widget.userAvatarUrl!.trim().isNotEmpty;
+
     return Container(
       height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12.0 : 24.0),
       color: Colors.white,
       child: Row(
         children: [
-          // Barre de recherche (Encadrée dans un Expanded pour éviter les erreurs de débordement)
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 450),
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
+          // Bouton Menu hamburger affiché SEULEMENT sur Tablette et Desktop
+          if (!isMobile) ...[
+            IconButton(
+              icon: const Icon(Icons.menu, color: Color(0xFF605E5C)),
+              onPressed: widget.onMenuPressed ?? () {
+                Scaffold.of(context).openDrawer();
+              },
             ),
-          ),
-          
-          const SizedBox(width: 16),
+            const SizedBox(width: 8),
+          ],
 
-          // Actions de droite (Mode sombre, Panier, Notifications, Grille, Avatar)
+          // Espaceur pour pousser les actions vers la droite
+          const Spacer(),
+
+          // Actions de droite adaptées
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildIconButton(icon: Icons.dark_mode_outlined, onPressed: () {}),
-              const SizedBox(width: 12),
+              if (!isMobile) ...[
+                _buildIconButton(
+                  icon: Icons.dark_mode_outlined, 
+                  onPressed: () => _showCustomModal(context, "Paramètres du Mode Sombre", "Options d'affichage et de thème."),
+                ),
+                const SizedBox(width: 12),
+              ],
+
               _buildCartButton(),
               const SizedBox(width: 12),
               _buildNotificationButton(),
-              const SizedBox(width: 12),
-              _buildIconButton(icon: Icons.grid_view_rounded, onPressed: () {}),
-              const SizedBox(width: 20),
               
-              // Avatar utilisateur cliquable avec redirection vers les paramètres
-              InkWell(
-                onTap: () {
-                  widget.onSelectPage('/admins/settings');
-                },
-                borderRadius: BorderRadius.circular(18),
-                child: const CircleAvatar(
-                  radius: 18,
-                  backgroundImage: NetworkImage(
-                    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-                  ),
+              if (!isMobile) ...[
+                const SizedBox(width: 12),
+                _buildIconButton(
+                  icon: Icons.grid_view_rounded, 
+                  onPressed: () => _showCustomModal(context, "Applications Rapides", "Sélectionnez un module ou raccourci système."),
                 ),
+              ],
+
+              const SizedBox(width: 16),
+              
+              // Badge de rôle avec l'avatar ou le texte du rôle
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (roleInfo['color'] as Color).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: (roleInfo['color'] as Color).withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      roleInfo['label'],
+                      style: TextStyle(
+                        color: roleInfo['color'],
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  
+                  // Avatar utilisateur cliquable (Affiche la photo si présente, sinon les initiales/rôle)
+                  InkWell(
+                    onTap: () {
+                      widget.onSelectPage('/admins/settings');
+                    },
+                    borderRadius: BorderRadius.circular(18),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: roleInfo['color'].withOpacity(0.2),
+                      backgroundImage: hasAvatar ? NetworkImage(widget.userAvatarUrl!) : null,
+                      child: !hasAvatar
+                          ? Text(
+                              roleInfo['label'],
+                              style: TextStyle(
+                                color: roleInfo['color'],
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -83,7 +142,31 @@ class _NavbarWidgetState extends State<NavbarWidget> {
     );
   }
 
-  // Widget utilitaire pour les boutons icônes
+  void _showCustomModal(BuildContext context, String title, String content) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+          content: Text(
+            content,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fermer', style: TextStyle(color: Color(0xFF4F46E5))),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
     return Container(
       decoration: BoxDecoration(
@@ -97,7 +180,6 @@ class _NavbarWidgetState extends State<NavbarWidget> {
     );
   }
 
-  // Bouton Panier avec badge numérique
   Widget _buildCartButton() {
     return Stack(
       clipBehavior: Clip.none,
@@ -109,7 +191,7 @@ class _NavbarWidgetState extends State<NavbarWidget> {
           ),
           child: IconButton(
             icon: const Icon(Icons.shopping_cart_outlined, color: Colors.grey, size: 20),
-            onPressed: () {},
+            onPressed: () => _showCustomModal(context, "Panier", "Vous avez 0 article dans votre panier de commandes."),
           ),
         ),
         Positioned(
@@ -137,7 +219,6 @@ class _NavbarWidgetState extends State<NavbarWidget> {
     );
   }
 
-  // Bouton Notifications avec point bleu
   Widget _buildNotificationButton() {
     return Stack(
       clipBehavior: Clip.none,
@@ -150,7 +231,7 @@ class _NavbarWidgetState extends State<NavbarWidget> {
           child: IconButton(
             icon: const Icon(Icons.notifications_none_rounded, color: Colors.grey, size: 20),
             onPressed: () {
-              widget.onSelectPage('/admins/settings');
+              _showCustomModal(context, "Notifications", "Aucune nouvelle notification pour le moment.");
             },
           ),
         ),

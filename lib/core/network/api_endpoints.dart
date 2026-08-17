@@ -1,4 +1,5 @@
 class ApiConfig {
+  
   ApiConfig._();
  static const String setupAdmin ='https://ekklesiaciel.com/api/setup/admin';
 

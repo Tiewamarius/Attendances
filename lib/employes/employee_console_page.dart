@@ -1,7 +1,6 @@
 import 'package:attendance/employes/pages/employee_history_page.dart';
 import 'package:attendance/employes/pages/employee_home_page.dart.dart';
 import 'package:attendance/employes/pages/planning_pages.dart';
-import 'package:attendance/kiosk/attendance_screen.dart';
 import 'package:flutter/material.dart';
 
 class EmployeeConsolePage extends StatefulWidget {

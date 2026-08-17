@@ -1,4 +1,5 @@
 import 'dart:convert'; // Nécessaire pour jsonDecode
+import 'package:attendance/adminfolder/admin_page.dart';
 import 'package:attendance/adminfolder/pages/admin_settings_page.dart';
 import 'package:attendance/adminfolder/pages/employes_page.dart';
 import 'package:attendance/adminfolder/widgets/navbar_widget.dart';
@@ -16,24 +17,9 @@ class DesktopConsole extends StatefulWidget {
 }
 
 class _DesktopConsoleState extends State<DesktopConsole> {
-  Map<String, dynamic>? user;
+ 
 
-  @override
-  void initState() {
-    super.initState();
-    loadUser();
-  }
-
-  Future<void> loadUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('user');
-
-    if (data != null) {
-      setState(() {
-        user = jsonDecode(data);
-      });
-    }
-  }
+  
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -54,7 +40,7 @@ class _DesktopConsoleState extends State<DesktopConsole> {
   Widget _buildSelectedPageContent() {
     switch (selectedPage) {
       case '/admin':
-        return const Text('Tableau de bord principal');
+        return const AdminPage();
 
       case '/admins/settings':
         return const AdminSettingsPage();

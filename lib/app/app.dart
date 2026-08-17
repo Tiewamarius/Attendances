@@ -10,7 +10,6 @@ class AttendanceApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: "ATTENDANCE",
-
       debugShowCheckedModeBanner: false,
 
       theme: AppTheme.light,
