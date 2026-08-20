@@ -1,20 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:attendance/core/auth/auth_service.dart';
 import 'package:attendance/core/res/responsive.dart';
+import 'package:flutter/material.dart';
 
 class NavbarWidget extends StatefulWidget implements PreferredSizeWidget {
   final Function(String) onSelectPage;
   final String selectedPage;
   final VoidCallback? onMenuPressed;
-  final String userRole; // 'AD', 'RH', 'MG'
-  final String? userAvatarUrl; // URL de la photo de profil (null ou vide si non définie)
 
   const NavbarWidget({
     super.key,
     required this.selectedPage,
     required this.onSelectPage,
     this.onMenuPressed,
-    this.userRole = 'AD',
-    this.userAvatarUrl,
   });
 
   @override
@@ -25,115 +22,210 @@ class NavbarWidget extends StatefulWidget implements PreferredSizeWidget {
 }
 
 class _NavbarWidgetState extends State<NavbarWidget> {
-  Map<String, dynamic> _getRoleDetails(String role) {
-    switch (role.toUpperCase()) {
-      case 'RH':
-        return {'label': 'RH', 'color': Colors.green, 'title': 'Ressources Humaines'};
-      case 'MG':
-        return {'label': 'MG', 'color': Colors.orange, 'title': 'Manager'};
-      case 'AD':
-      default:
-        return {'label': 'AD', 'color': Colors.indigo, 'title': 'Administrateur'};
+  Map<String, dynamic>? user;
+
+  List<String> roles = [];
+
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    try {
+      /*
+      On récupère d'abord les données locales.
+      */
+
+      final savedUser = await AuthService.getSavedUser();
+      final savedRoles = await AuthService.getSavedRoles();
+
+      if (mounted) {
+        setState(() {
+          user = savedUser;
+          roles = savedRoles;
+          loading = false;
+        });
+      }
+
+      /*
+      Ensuite on demande les vraies données au backend.
+      */
+
+      final data = await AuthService.getCurrentUser();
+
+      if (data != null && mounted) {
+        setState(() {
+          user = data['user'] != null
+              ? Map<String, dynamic>.from(data['user'])
+              : user;
+
+          roles = data['roles'] != null
+              ? List<String>.from(data['roles'])
+              : roles;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement utilisateur : $e');
+
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
+  }
+
+  String get userName {
+    return user?['name']?.toString() ?? 'Utilisateur';
+  }
+
+  String get userEmail {
+    return user?['email']?.toString() ?? '';
+  }
+
+  String get role {
+    if (roles.contains('super_admin')) {
+      return 'SUPER ADMIN';
+    }
+
+    if (roles.contains('admin_rh')) {
+      return 'RH';
+    }
+
+    if (roles.contains('manager')) {
+      return 'MANAGER';
+    }
+
+    if (roles.contains('kiosk')) {
+      return 'KIOSK';
+    }
+
+    if (roles.contains('employee')) {
+      return 'EMPLOYÉ';
+    }
+
+    return 'UTILISATEUR';
+  }
+
+  Color get roleColor {
+    if (roles.contains('super_admin')) {
+      return Colors.indigo;
+    }
+
+    if (roles.contains('admin_rh')) {
+      return Colors.green;
+    }
+
+    if (roles.contains('manager')) {
+      return Colors.orange;
+    }
+
+    if (roles.contains('kiosk')) {
+      return Colors.purple;
+    }
+
+    return Colors.blue;
+  }
+
+  String get initials {
+    final name = userName.trim();
+
+    if (name.isEmpty) {
+      return 'U';
+    }
+
+    final parts = name.split(' ');
+
+    if (parts.length == 1) {
+      return parts[0][0].toUpperCase();
+    }
+
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
     final bool isMobile = Responsive.isMobile(context);
-    final roleInfo = _getRoleDetails(widget.userRole);
-
-    final bool hasAvatar = widget.userAvatarUrl != null && widget.userAvatarUrl!.trim().isNotEmpty;
 
     return Container(
       height: 70,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12.0 : 24.0),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
       color: Colors.white,
       child: Row(
         children: [
-          // Bouton Menu hamburger affiché SEULEMENT sur Tablette et Desktop
-          if (!isMobile) ...[
-            IconButton(
-              icon: const Icon(Icons.menu, color: Color(0xFF605E5C)),
-              onPressed: widget.onMenuPressed ?? () {
-                Scaffold.of(context).openDrawer();
-              },
-            ),
-            const SizedBox(width: 8),
-          ],
-
-          // Espaceur pour pousser les actions vers la droite
           const Spacer(),
 
-          // Actions de droite adaptées
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!isMobile) ...[
                 _buildIconButton(
-                  icon: Icons.dark_mode_outlined, 
-                  onPressed: () => _showCustomModal(context, "Paramètres du Mode Sombre", "Options d'affichage et de thème."),
+                  icon: Icons.dark_mode_outlined,
+                  onPressed: () {
+                    _showCustomModal(
+                      context,
+                      'Mode sombre',
+                      "Options d'affichage et de thème.",
+                    );
+                  },
                 ),
+
                 const SizedBox(width: 12),
               ],
 
-              _buildCartButton(),
-              const SizedBox(width: 12),
               _buildNotificationButton(),
-              
-              if (!isMobile) ...[
-                const SizedBox(width: 12),
-                _buildIconButton(
-                  icon: Icons.grid_view_rounded, 
-                  onPressed: () => _showCustomModal(context, "Applications Rapides", "Sélectionnez un module ou raccourci système."),
-                ),
-              ],
 
               const SizedBox(width: 16),
-              
-              // Badge de rôle avec l'avatar ou le texte du rôle
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (roleInfo['color'] as Color).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: (roleInfo['color'] as Color).withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      roleInfo['label'],
-                      style: TextStyle(
-                        color: roleInfo['color'],
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+
+              /*
+              PROFIL
+              */
+              InkWell(
+                onTap: () {
+                  widget.onSelectPage('/admins/settings');
+                },
+                borderRadius: BorderRadius.circular(30),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 19,
+                      backgroundColor: roleColor.withOpacity(0.15),
+                      child: Text(
+                        role,
+                        style: TextStyle(
+                          color: roleColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  
-                  // Avatar utilisateur cliquable (Affiche la photo si présente, sinon les initiales/rôle)
-                  InkWell(
-                    onTap: () {
-                      widget.onSelectPage('/admins/settings');
-                    },
-                    borderRadius: BorderRadius.circular(18),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: roleInfo['color'].withOpacity(0.2),
-                      backgroundImage: hasAvatar ? NetworkImage(widget.userAvatarUrl!) : null,
-                      child: !hasAvatar
-                          ? Text(
-                              roleInfo['label'],
-                              style: TextStyle(
-                                color: roleInfo['color'],
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ],
+
+                    if (!isMobile) ...[
+                      const SizedBox(width: 10),
+
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            loading ? 'Chargement...' : userName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -142,32 +234,10 @@ class _NavbarWidgetState extends State<NavbarWidget> {
     );
   }
 
-  void _showCustomModal(BuildContext context, String title, String content) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-          ),
-          content: Text(
-            content,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Fermer', style: TextStyle(color: Color(0xFF4F46E5))),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildIconButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey[100],
@@ -177,45 +247,6 @@ class _NavbarWidgetState extends State<NavbarWidget> {
         icon: Icon(icon, color: Colors.grey[700], size: 20),
         onPressed: onPressed,
       ),
-    );
-  }
-
-  Widget _buildCartButton() {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined, color: Colors.grey, size: 20),
-            onPressed: () => _showCustomModal(context, "Panier", "Vous avez 0 article dans votre panier de commandes."),
-          ),
-        ),
-        Positioned(
-          right: 4,
-          top: 4,
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
-              color: Colors.deepOrange,
-              shape: BoxShape.circle,
-            ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            child: const Text(
-              '0',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -229,21 +260,63 @@ class _NavbarWidgetState extends State<NavbarWidget> {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Colors.grey, size: 20),
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.grey,
+              size: 20,
+            ),
             onPressed: () {
-              _showCustomModal(context, "Notifications", "Aucune nouvelle notification pour le moment.");
+              _showCustomModal(
+                context,
+                'Notifications',
+                'Aucune nouvelle notification.',
+              );
             },
           ),
         ),
+
         const Positioned(
           right: 8,
           top: 8,
-          child: CircleAvatar(
-            radius: 4,
-            backgroundColor: Colors.blue,
-          ),
+          child: CircleAvatar(radius: 4, backgroundColor: Colors.blue),
         ),
       ],
+    );
+  }
+
+  void _showCustomModal(BuildContext context, String title, String content) {
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          content: Text(
+            content,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Fermer',
+                style: TextStyle(color: Color(0xFF4F46E5)),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

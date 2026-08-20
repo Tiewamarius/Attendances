@@ -18,7 +18,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
   String selectedFilter = 'Toutes';
   int? selectedIndex;
 
-  // Contrôleurs pour correspondre aux champs de la table employees Laravel
+  // Contrôleurs pour correspondre aux champs de la table employees
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();

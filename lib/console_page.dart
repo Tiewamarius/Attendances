@@ -1,6 +1,6 @@
-import 'package:attendance/adminfolder/desktop_console.dart';
-import 'package:attendance/adminfolder/mobile_console.dart';
-import 'package:attendance/adminfolder/tablet_console.dart';
+import 'package:attendance/console/desktop_console.dart';
+import 'package:attendance/console/mobile_console.dart';
+import 'package:attendance/console/tablet_console.dart';
 import 'package:attendance/core/res/responsive.dart';
 import 'package:flutter/material.dart';
 

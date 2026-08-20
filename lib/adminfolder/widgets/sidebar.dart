@@ -1,5 +1,7 @@
+import 'package:attendance/core/auth/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SideBar extends StatefulWidget {
@@ -117,13 +119,24 @@ class _SideBarState extends State<SideBar> {
                 const Spacer(),
 
                 SideBarItem(
-                  title: 'Déconnexion',
-                  icon: 'assets/icons/logout.svg',
-                  isSelected: false,
-                  onTap: () {
-                    // logout 
-                  },
-                ),
+  title: 'Déconnexion',
+  icon: 'assets/icons/logout.svg',
+  isSelected: false,
+  onTap: () async {
+
+    try {
+
+      await AuthService.logout();
+
+
+      context.go('/login');
+      
+    } catch (e) {
+      debugPrint('ERREUR LOGOUT : $e');
+    }
+
+  },
+),
               ],
             ),
           ),

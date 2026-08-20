@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'router.dart';
-import 'theme.dart';
+import '../constante/theme.dart';
 
 class AttendanceApp extends StatelessWidget {
   const AttendanceApp({super.key});

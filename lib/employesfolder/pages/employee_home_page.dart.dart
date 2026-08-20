@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:attendance/models/employees/employee_model.dart';
 import 'package:flutter/material.dart';
 
 class EmployeHome extends StatefulWidget {
@@ -14,10 +15,16 @@ class _EmployeHomeState extends State<EmployeHome> {
   Timer? _timer;
 
   @override
-  void initState() {
-    super.initState();
-    _updateTime();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) => _updateTime());
+  void initState() {super.initState();
+
+  _updateTime();
+
+  _timer = Timer.periodic(
+    const Duration(seconds: 1),
+    (timer) => _updateTime(),
+  );
+
+  // _loadEmployee();
   }
 
   void _updateTime() {
@@ -33,7 +40,9 @@ class _EmployeHomeState extends State<EmployeHome> {
     super.dispose();
   }
 
-
+  Employee? _employee;
+  bool _loadingEmployee = true;
+   String? _error;
   @override
   Widget build(BuildContext context) {
     return Scaffold(

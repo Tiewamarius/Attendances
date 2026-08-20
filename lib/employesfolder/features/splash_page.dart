@@ -4,8 +4,8 @@ import 'package:attendance/core/auth/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../app/assets.dart';
-import '../app/colors.dart';
+import '../../constante/assets.dart';
+import '../../constante/colors.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});

@@ -1,34 +1,20 @@
-import 'dart:convert'; // Nécessaire pour jsonDecode
-import 'package:attendance/adminfolder/admin_page.dart';
+
+import 'package:attendance/adminfolder/pages/admin_page.dart';
+import 'package:attendance/adminfolder/employees/presences_employees_page.dart';
 import 'package:attendance/adminfolder/pages/admin_settings_page.dart';
-import 'package:attendance/adminfolder/pages/employes_page.dart';
+import 'package:attendance/adminfolder/employees/employes_page.dart';
 import 'package:attendance/adminfolder/widgets/navbar_widget.dart';
 import 'package:attendance/adminfolder/widgets/sidebar.dart';
-import 'package:attendance/constante/colors.dart' as colors;
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart'; // Nécessaire pour context.goNamed
-import 'package:shared_preferences/shared_preferences.dart'; // Nécessaire pour SharedPreferences
 
-class DesktopConsole extends StatefulWidget {
-  const DesktopConsole({super.key});
+class TabletConsole extends StatefulWidget {
+  const TabletConsole({super.key});
 
   @override
-  State<DesktopConsole> createState() => _DesktopConsoleState();
+  State<TabletConsole> createState() => _TabletConsoleState();
 }
 
-class _DesktopConsoleState extends State<DesktopConsole> {
- 
-
-  
-
-  Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-
-    if (!mounted) return;
-    context.goNamed('login');
-  }
-
+class _TabletConsoleState extends State<TabletConsole> {
   String selectedPage = '/admin';
 
   void _onSelectPage(String page) {
@@ -36,6 +22,7 @@ class _DesktopConsoleState extends State<DesktopConsole> {
       selectedPage = page;
     });
   }
+  // widget pour les page selectionn
 
   Widget _buildSelectedPageContent() {
     switch (selectedPage) {
@@ -44,12 +31,12 @@ class _DesktopConsoleState extends State<DesktopConsole> {
 
       case '/admins/settings':
         return const AdminSettingsPage();
-        
+
       case '/employees':
         return const EmployeesPage();
 
       case '/attendance':
-        return const Text('Gestion des présences');
+        return const PresencesEmployeesPage();
       default:
         return Text('Page active : $selectedPage');
     }
@@ -58,17 +45,14 @@ class _DesktopConsoleState extends State<DesktopConsole> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: colors.bgColor,
+      backgroundColor: Colors.white,
       body: Row(
         children: [
-          SideBar(
-            selectedPage: selectedPage,
-            onSelectPage: _onSelectPage,
-          ),
+          SideBar(selectedPage: selectedPage, onSelectPage: _onSelectPage),
           Expanded(
             child: Column(
               children: [
-                NavbarWidget(selectedPage: '', onSelectPage:_onSelectPage,),
+                NavbarWidget(selectedPage: '', onSelectPage: _onSelectPage),
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.all(2.0),
@@ -83,3 +67,5 @@ class _DesktopConsoleState extends State<DesktopConsole> {
     );
   }
 }
+
+

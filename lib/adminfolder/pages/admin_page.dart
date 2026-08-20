@@ -9,7 +9,6 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
-  String _selectedPage = '/admins/home';
 
   @override
   Widget build(BuildContext context) {
@@ -26,17 +25,7 @@ class _AdminPageState extends State<AdminPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // 1. HEADER ADMINISTRATEUR (Masqué sur Desktop car Sidebar/Menu latéral généralement utilisé)
-            if (!isDesktop)
-              NavbarWidget(
-                selectedPage: _selectedPage,
-                onSelectPage: (route) {
-                  setState(() {
-                    _selectedPage = route;
-                  });
-                },
-              ),
-
+              
             // Contenu Scrollable Responsive
             Expanded(
               child: SingleChildScrollView(

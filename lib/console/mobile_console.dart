@@ -1,7 +1,7 @@
-import 'package:attendance/adminfolder/admin_page.dart';
+import 'package:attendance/adminfolder/pages/admin_page.dart';
 import 'package:attendance/adminfolder/pages/admin_settings_page.dart';
 import 'package:attendance/adminfolder/pages/validate_pages.dart';
-import 'package:attendance/adminfolder/pages/employes_page.dart';
+import 'package:attendance/adminfolder/employees/employes_page.dart';
 import 'package:flutter/material.dart';
 
 class MobileConsole extends StatefulWidget {
@@ -23,7 +23,7 @@ class _MobileConsoleState extends State<MobileConsole> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Scaffold(             
       body: _pages[selectedIndex],
       backgroundColor: Colors.white,
       bottomNavigationBar: Container(
