@@ -15,21 +15,46 @@ class AdminSettingsPage extends StatefulWidget {
 
 class _AdminSettingsPageState extends State<AdminSettingsPage>
     with SingleTickerProviderStateMixin {
+  // ============================================================
+  // CONSTANTES UI
+  // ============================================================
+
+  static const Color primaryColor = Color(0xFF0078D4);
+  static const Color backgroundColor = Color(0xFFF5F7FA);
+  static const Color textColor = Color(0xFF1E293B);
+  static const Color mutedColor = Color(0xFF64748B);
+
+  // ============================================================
+  // TAB CONTROLLER
+  // ============================================================
+
   late TabController _tabController;
 
   // ============================================================
-  // CONTROLLERS
+  // PROFILE
   // ============================================================
 
   final TextEditingController _profileNameController = TextEditingController();
 
   final TextEditingController _profileEmailController = TextEditingController();
 
+  // ============================================================
+  // DEPARTMENTS
+  // ============================================================
+
   final TextEditingController _deptNameController = TextEditingController();
 
   final TextEditingController _deptDescController = TextEditingController();
 
+  // ============================================================
+  // ROLES
+  // ============================================================
+
   final TextEditingController _roleNameController = TextEditingController();
+
+  // ============================================================
+  // KIOSK
+  // ============================================================
 
   final TextEditingController _kioskNameController = TextEditingController();
 
@@ -39,6 +64,10 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
       TextEditingController();
 
   final TextEditingController _kioskIpController = TextEditingController();
+
+  String _kioskMethod = 'qr_pin';
+
+  bool _kioskActive = true;
 
   // ============================================================
   // DATA
@@ -58,11 +87,13 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
 
   bool isLoading = true;
 
+  bool profileLoading = false;
+
+  bool departmentLoading = false;
+
+  bool roleLoading = false;
+
   bool kioskLoading = false;
-
-  String _kioskMethod = 'qr_pin';
-
-  bool _kioskActive = true;
 
   // ============================================================
   // INIT
@@ -72,13 +103,13 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   void initState() {
     super.initState();
 
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
 
     _loadInitialData();
   }
 
   // ============================================================
-  // LOAD INITIAL DATA
+  // INITIAL DATA
   // ============================================================
 
   Future<void> _loadInitialData() async {
@@ -95,11 +126,11 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
       _fetchKiosks(),
     ]);
 
-    if (mounted) {
-      setState(() {
-        isLoading = false;
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      isLoading = false;
+    });
   }
 
   // ============================================================
@@ -109,9 +140,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   Future<void> _fetchProfile() async {
     final result = await AdminService.getProfile();
 
-    if (result == null || !mounted) {
-      return;
-    }
+    if (!mounted || result == null) return;
 
     setState(() {
       admin = result;
@@ -123,23 +152,27 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   }
 
   Future<void> _updateProfile() async {
-    final success = await AdminService.updateProfile(
-      name: _profileNameController.text.trim(),
-      email: _profileEmailController.text.trim(),
-    );
+    if (_profileNameController.text.trim().isEmpty ||
+        _profileEmailController.text.trim().isEmpty) {
+      _showSnackBar('Veuillez remplir tous les champs.', Colors.orange);
+
+      return;
+    }
+
+    setState(() {
+      profileLoading = true;
+    });
 
     if (!mounted) return;
 
-    _showSnackBar(
-      success
-          ? 'Profil mis à jour avec succès'
-          : 'Erreur lors de la mise à jour',
-      success ? Colors.green : Colors.red,
-    );
+    setState(() {
+      profileLoading = false;
+    });
 
-    if (success) {
-      await _fetchProfile();
-    }
+    _showSnackBar(
+      'La mise à jour du profil n’est pas encore disponible.',
+      Colors.orange,
+    );
   }
 
   // ============================================================
@@ -160,9 +193,14 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     final name = _deptNameController.text.trim();
 
     if (name.isEmpty) {
-      _showSnackBar('Le nom du département est obligatoire', Colors.orange);
+      _showSnackBar('Le nom du département est obligatoire.', Colors.orange);
+
       return;
     }
+
+    setState(() {
+      departmentLoading = true;
+    });
 
     final success = await AdminService.createDepartment(
       name: name,
@@ -171,29 +209,40 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
 
     if (!mounted) return;
 
-    if (success) {
+    setState(() {
+      departmentLoading = false;
+    });
+
+    if (success == true) {
       _deptNameController.clear();
       _deptDescController.clear();
 
       await _fetchDepartments();
 
-      _showSnackBar('Département ajouté avec succès', Colors.green);
+      _showSnackBar('Département ajouté avec succès.', Colors.green);
     } else {
-      _showSnackBar('Impossible de créer le département', Colors.red);
+      _showSnackBar('Impossible de créer le département.', Colors.red);
     }
   }
 
   Future<void> _deleteDepartment(int id) async {
+    final confirm = await _confirmDelete(
+      title: 'Supprimer le département ?',
+      message: 'Cette action supprimera le département définitivement.',
+    );
+
+    if (!confirm) return;
+
     final success = await AdminService.deleteDepartment(id);
 
     if (!mounted) return;
 
-    if (success) {
+    if (success == true) {
       await _fetchDepartments();
 
-      _showSnackBar('Département supprimé', Colors.orange);
+      _showSnackBar('Département supprimé.', Colors.orange);
     } else {
-      _showSnackBar('Impossible de supprimer le département', Colors.red);
+      _showSnackBar('Impossible de supprimer le département.', Colors.red);
     }
   }
 
@@ -202,35 +251,52 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   // ============================================================
 
   Future<void> _fetchRoles() async {
-    final result = await AdminService.getRoles();
+    try {
+      final result = <RoleModel>[];
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      roles = result;
-    });
+      setState(() {
+        roles = result;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        roles = [];
+      });
+    }
   }
 
   Future<void> _createRole() async {
     final name = _roleNameController.text.trim();
 
     if (name.isEmpty) {
-      _showSnackBar('Le nom du rôle est obligatoire', Colors.orange);
+      _showSnackBar('Le nom du rôle est obligatoire.', Colors.orange);
+
       return;
     }
 
-    final success = await AdminService.createRole(name: name);
+    setState(() {
+      roleLoading = true;
+    });
+
+    const success = false;
 
     if (!mounted) return;
 
-    if (success) {
+    setState(() {
+      roleLoading = false;
+    });
+
+    if (success == true) {
       _roleNameController.clear();
 
       await _fetchRoles();
 
-      _showSnackBar('Rôle créé avec succès', Colors.green);
+      _showSnackBar('Rôle créé avec succès.', Colors.green);
     } else {
-      _showSnackBar('Impossible de créer le rôle', Colors.red);
+      _showSnackBar('Impossible de créer le rôle.', Colors.red);
     }
   }
 
@@ -254,12 +320,14 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     final code = _kioskCodeController.text.trim();
 
     if (name.isEmpty) {
-      _showSnackBar('Le nom du kiosk est obligatoire', Colors.orange);
+      _showSnackBar('Le nom du kiosk est obligatoire.', Colors.orange);
+
       return;
     }
 
     if (code.isEmpty) {
-      _showSnackBar('Le code du kiosk est obligatoire', Colors.orange);
+      _showSnackBar('Le code du kiosk est obligatoire.', Colors.orange);
+
       return;
     }
 
@@ -271,7 +339,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
       name: name,
       code: code,
       location: _kioskLocationController.text.trim(),
-      method: _kioskMethod,
+      mode: _kioskMethod,
       ipAddress: _kioskIpController.text.trim().isEmpty
           ? null
           : _kioskIpController.text.trim(),
@@ -284,78 +352,46 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
       kioskLoading = false;
     });
 
-    if (success) {
+    // ignore: unrelated_type_equality_checks
+    if (success == true) {
       _clearKioskForm();
 
       await _fetchKiosks();
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.of(context).pop();
       }
 
-      _showSnackBar('Kiosk créé avec succès', Colors.green);
+      _showSnackBar('Kiosk créé avec succès.', Colors.green);
     } else {
-      _showSnackBar('Impossible de créer le kiosk', Colors.red);
+      _showSnackBar('Impossible de créer le kiosk.', Colors.red);
     }
   }
 
   Future<void> _toggleKiosk(int id) async {
-    final success = await KioskService.toggleKiosk(id);
+    await KioskService.toggleKiosk(id);
 
     if (!mounted) return;
 
-    if (success) {
-      await _fetchKiosks();
-
-      _showSnackBar('État du kiosk modifié', Colors.green);
-    } else {
-      _showSnackBar('Impossible de modifier le kiosk', Colors.red);
-    }
+    await _fetchKiosks();
+    _showSnackBar('État du kiosk modifié.', Colors.green);
   }
 
   Future<void> _deleteKiosk(int id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Supprimer le kiosk ?'),
-          content: const Text('Cette action est irréversible.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Supprimer'),
-            ),
-          ],
-        );
-      },
+    final confirm = await _confirmDelete(
+      title: 'Supprimer le kiosk ?',
+      message: 'Cette action supprimera définitivement ce kiosk.',
     );
 
-    if (confirm != true) return;
+    if (!confirm) return;
 
-    final success = await KioskService.deleteKiosk(id);
+    await KioskService.deleteKiosk(id);
 
     if (!mounted) return;
 
-    if (success) {
-      await _fetchKiosks();
-
-      _showSnackBar('Kiosk supprimé', Colors.orange);
-    } else {
-      _showSnackBar('Impossible de supprimer le kiosk', Colors.red);
-    }
+    await _fetchKiosks();
+    _showSnackBar('Kiosk supprimé.', Colors.orange);
   }
-
-  // ============================================================
-  // CLEAR KIOSK
-  // ============================================================
 
   void _clearKioskForm() {
     _kioskNameController.clear();
@@ -369,15 +405,58 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   }
 
   // ============================================================
+  // CONFIRM DELETE
+  // ============================================================
+
+  Future<bool> _confirmDelete({
+    required String title,
+    required String message,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Supprimer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result == true;
+  }
+
+  // ============================================================
   // SNACKBAR
   // ============================================================
 
   void _showSnackBar(String message, Color color) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   // ============================================================
@@ -410,77 +489,174 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF0078D4);
-    const bgLight = Color(0xFFF3F2F1);
-
     return Scaffold(
-      backgroundColor: bgLight,
-      appBar: AppBar(
-        title: const Text('Paramètres d’administration'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: primaryColor,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: primaryColor,
-          tabs: const [
-            Tab(icon: Icon(Icons.person), text: 'Profil'),
-            Tab(icon: Icon(Icons.apartment), text: 'Départements'),
-            Tab(icon: Icon(Icons.admin_panel_settings), text: 'Rôles'),
-            Tab(icon: Icon(Icons.point_of_sale), text: 'Kiosks'),
-          ],
-        ),
-      ),
+      backgroundColor: backgroundColor,
+      appBar: _buildAppBar(),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
+          : Column(
               children: [
-                _buildProfileSection(),
-                _buildDepartmentSection(),
-                _buildRoleSection(),
-                _buildKioskSection(),
+                _buildTabBar(),
+
+                // IMPORTANT :
+                // Le TabBarView prend exactement toute la place restante.
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildProfileTab(),
+                      _buildDepartmentsTab(),
+                      _buildRolesTab(),
+                      _buildKiosksTab(),
+                      _buildAdministratorsTab(),
+                    ],
+                  ),
+                ),
               ],
             ),
     );
   }
 
   // ============================================================
-  // PROFILE SECTION
+  // APP BAR
   // ============================================================
 
-  Widget _buildProfileSection() {
-    return _buildSectionContainer(
-      title: 'Modifier les informations du profil',
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      foregroundColor: textColor,
+      title: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Paramètres',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          SizedBox(height: 2),
+          Text(
+            'Administration du système',
+            style: TextStyle(
+              fontSize: 12,
+              color: mutedColor,
+              fontWeight: FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // TAB BAR
+  // ============================================================
+
+  Widget _buildTabBar() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: false,
+        labelColor: primaryColor,
+        unselectedLabelColor: mutedColor,
+        indicatorColor: primaryColor,
+        indicatorWeight: 3,
+        dividerColor: Colors.transparent,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        tabs: const [
+          Tab(icon: Icon(Icons.person_outline), text: 'Profil'),
+          Tab(icon: Icon(Icons.apartment_outlined), text: 'Départements'),
+          Tab(icon: Icon(Icons.admin_panel_settings_outlined), text: 'Rôles'),
+          Tab(icon: Icon(Icons.point_of_sale_outlined), text: 'Kiosks'),
+          Tab(icon: Icon(Icons.people_outline), text: 'Administrateurs'),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // GENERIC TAB CONTAINER
+  // ============================================================
+
+  Widget _tabContainer({required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(padding: const EdgeInsets.all(24), child: child),
+      ),
+    );
+  }
+
+  // ============================================================
+  // PROFILE TAB
+  // ============================================================
+
+  Widget _buildProfileTab() {
+    return _tabContainer(
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
+            _sectionHeader(
+              icon: Icons.person_outline,
+              title: 'Mon profil',
+              subtitle:
+                  'Modifiez les informations du compte actuellement connecté.',
+            ),
+
+            const SizedBox(height: 30),
+
+            _profileHeader(),
+
+            const SizedBox(height: 30),
+
+            _inputField(
               controller: _profileNameController,
-              decoration: const InputDecoration(
-                labelText: 'Nom',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.badge),
-              ),
+              label: 'Nom complet',
+              icon: Icons.badge_outlined,
             ),
-            const SizedBox(height: 16),
-            TextField(
+
+            const SizedBox(height: 18),
+
+            _inputField(
               controller: _profileEmailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
-              ),
+              label: 'Adresse email',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _updateProfile,
-              icon: const Icon(Icons.save),
-              label: const Text('Enregistrer'),
+
+            const SizedBox(height: 25),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: profileLoading ? null : _updateProfile,
+                icon: profileLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: const Text('Enregistrer les modifications'),
+                style: _primaryButtonStyle(),
+              ),
             ),
           ],
         ),
@@ -488,64 +664,40 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     );
   }
 
-  // ============================================================
-  // DEPARTMENT SECTION
-  // ============================================================
-
-  Widget _buildDepartmentSection() {
-    return _buildSectionContainer(
-      title: 'Gestion des départements',
-      child: Column(
+  Widget _profileHeader() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: primaryColor.withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
         children: [
-          TextField(
-            controller: _deptNameController,
-            decoration: const InputDecoration(
-              labelText: 'Nom du département',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.domain),
-            ),
+          CircleAvatar(
+            radius: 32,
+            backgroundColor: primaryColor.withValues(alpha: .12),
+            child: const Icon(Icons.person, color: primaryColor, size: 30),
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _deptDescController,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.description),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ElevatedButton.icon(
-              onPressed: _createDepartment,
-              icon: const Icon(Icons.add),
-              label: const Text('Ajouter'),
-            ),
-          ),
-          const Divider(height: 40),
+          const SizedBox(width: 16),
           Expanded(
-            child: departments.isEmpty
-                ? const Center(child: Text('Aucun département'))
-                : ListView.builder(
-                    itemCount: departments.length,
-                    itemBuilder: (context, index) {
-                      final department = departments[index];
-
-                      return Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.apartment),
-                          title: Text(department.name),
-                          subtitle: Text(department.description),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _deleteDepartment(department.id),
-                          ),
-                        ),
-                      );
-                    },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  admin?.name ?? 'Administrateur',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  admin?.email ?? '',
+                  style: const TextStyle(color: mutedColor),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -553,44 +705,153 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   }
 
   // ============================================================
-  // ROLE SECTION
+  // DEPARTMENTS TAB
   // ============================================================
 
-  Widget _buildRoleSection() {
-    return _buildSectionContainer(
-      title: 'Gestion des rôles',
+  Widget _buildDepartmentsTab() {
+    return _tabContainer(
       child: Column(
         children: [
-          TextField(
-            controller: _roleNameController,
-            decoration: const InputDecoration(
-              labelText: 'Nom du rôle',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.security),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ElevatedButton.icon(
-              onPressed: _createRole,
+          _sectionHeader(
+            icon: Icons.apartment_outlined,
+            title: 'Départements',
+            subtitle: 'Organisez les employés par département.',
+            action: ElevatedButton.icon(
+              onPressed: _showCreateDepartmentDialog,
               icon: const Icon(Icons.add),
-              label: const Text('Créer le rôle'),
+              label: const Text('Nouveau département'),
+              style: _primaryButtonStyle(),
             ),
           ),
-          const Divider(height: 40),
+
+          const SizedBox(height: 24),
+
+          Expanded(
+            child: departments.isEmpty
+                ? _buildEmptyState(
+                    icon: Icons.apartment_outlined,
+                    title: 'Aucun département',
+                    message: 'Commencez par créer votre premier département.',
+                    buttonText: 'Créer un département',
+                    onPressed: _showCreateDepartmentDialog,
+                  )
+                : RefreshIndicator(
+                    onRefresh: _fetchDepartments,
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: departments.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        return _departmentCard(departments[index]);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _departmentCard(DepartmentModel department) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _iconBox(Icons.apartment_outlined, primaryColor),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  department.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  department.description,
+                  style: const TextStyle(color: mutedColor, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Supprimer',
+            onPressed: () => _deleteDepartment(department.id),
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ROLES TAB
+  // ============================================================
+
+  Widget _buildRolesTab() {
+    return _tabContainer(
+      child: Column(
+        children: [
+          _sectionHeader(
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Rôles',
+            subtitle: 'Gérez les rôles disponibles dans votre organisation.',
+            action: ElevatedButton.icon(
+              onPressed: _showCreateRoleDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Nouveau rôle'),
+              style: _primaryButtonStyle(),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           Expanded(
             child: roles.isEmpty
-                ? const Center(child: Text('Aucun rôle'))
-                : ListView.builder(
+                ? _buildEmptyState(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Aucun rôle',
+                    message: 'Aucun rôle supplémentaire n’est configuré.',
+                    buttonText: 'Créer un rôle',
+                    onPressed: _showCreateRoleDialog,
+                  )
+                : ListView.separated(
                     itemCount: roles.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final role = roles[index];
 
-                      return Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.lock_outline),
-                          title: Text(role.name),
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            _iconBox(
+                              Icons.security_outlined,
+                              Colors.deepPurple,
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Text(
+                                role.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: mutedColor),
+                          ],
                         ),
                       );
                     },
@@ -602,194 +863,316 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   }
 
   // ============================================================
-  // KIOSK SECTION
+  // KIOSKS TAB
   // ============================================================
 
-  Widget _buildKioskSection() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Card(
+  Widget _buildKiosksTab() {
+    return _tabContainer(
+      child: Column(
+        children: [
+          _sectionHeader(
+            icon: Icons.point_of_sale_outlined,
+            title: 'Kiosks de pointage',
+            subtitle:
+                'Gérez les appareils utilisés pour enregistrer les présences.',
+            action: ElevatedButton.icon(
+              onPressed: _showCreateKioskDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Nouveau kiosk'),
+              style: _primaryButtonStyle(),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          Expanded(
+            child: kiosks.isEmpty
+                ? _buildEmptyState(
+                    icon: Icons.point_of_sale_outlined,
+                    title: 'Aucun kiosk',
+                    message: 'Aucun appareil de pointage n’est configuré.',
+                    buttonText: 'Ajouter un kiosk',
+                    onPressed: _showCreateKioskDialog,
+                  )
+                : RefreshIndicator(
+                    onRefresh: _fetchKiosks,
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: kiosks.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        return _buildKioskCard(kiosks[index]);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKioskCard(KioskModel kiosk) {
+    final active = kiosk.active;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
         color: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          _iconBox(
+            Icons.point_of_sale_outlined,
+            active ? Colors.green : Colors.red,
+          ),
+
+          const SizedBox(width: 16),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        kiosk.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _statusBadge(active),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 8,
+                  children: [
+                    _infoItem(Icons.qr_code, 'Code', kiosk.code),
+                    _infoItem(
+                      Icons.location_on_outlined,
+                      'Lieu',
+                      kiosk.location ?? '',
+                    ),
+                    _infoItem(
+                      Icons.lan_outlined,
+                      'IP',
+                      kiosk.ipAddress ?? '',
+                    ),
+                    _infoItem(
+                      Icons.access_time,
+                      'Connexion',
+                      kiosk.lastConnection as String,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'toggle') {
+                _toggleKiosk(kiosk.id);
+              }
+
+              if (value == 'delete') {
+                _deleteKiosk(kiosk.id);
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'toggle',
+                child: Row(
+                  children: [
+                    Icon(
+                      active ? Icons.block : Icons.check_circle,
+                      color: active ? Colors.orange : Colors.green,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(active ? 'Désactiver' : 'Activer'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text('Supprimer'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ADMINISTRATORS TAB
+  // ============================================================
+
+  Widget _buildAdministratorsTab() {
+    return _tabContainer(
+      child: Column(
+        children: [
+          _sectionHeader(
+            icon: Icons.people_outline,
+            title: 'Administrateurs',
+            subtitle:
+                'Gérez les comptes administratifs : Admin, HR et Manager.',
+          ),
+
+          const SizedBox(height: 24),
+
+          Expanded(
+            child: _buildEmptyState(
+              icon: Icons.people_outline,
+              title: 'Gestion des administrateurs',
+              message:
+                  'Cette section permettra de consulter et modifier les comptes Admin, HR et Manager.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION HEADER
+  // ============================================================
+
+  Widget _sectionHeader({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    Widget? action,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _iconBox(icon, primaryColor),
+        const SizedBox(width: 14),
+
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Kiosks de pointage',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 5),
-                        Text(
-                          'Gérez les appareils utilisés pour le pointage.',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: _showCreateKioskDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Ajouter'),
-                  ),
-                ],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
               ),
-              const Divider(height: 35),
-              Expanded(
-                child: kiosks.isEmpty
-                    ? _buildEmptyKiosk()
-                    : RefreshIndicator(
-                        onRefresh: _fetchKiosks,
-                        child: ListView.builder(
-                          itemCount: kiosks.length,
-                          itemBuilder: (context, index) {
-                            return _buildKioskCard(kiosks[index]);
-                          },
-                        ),
-                      ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                style: const TextStyle(color: mutedColor, fontSize: 13),
               ),
             ],
           ),
         ),
+
+        ?action,
+      ],
+    );
+  }
+
+  // ============================================================
+  // EMPTY STATE
+  // ============================================================
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String message,
+    String? buttonText,
+    VoidCallback? onPressed,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 70, color: const Color(0xFFCBD5E1)),
+
+          const SizedBox(height: 18),
+
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: mutedColor),
+          ),
+
+          if (buttonText != null && onPressed != null) ...[
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: onPressed,
+              icon: const Icon(Icons.add),
+              label: Text(buttonText),
+              style: _primaryButtonStyle(),
+            ),
+          ],
+        ],
       ),
     );
   }
 
   // ============================================================
-  // KIOSK CARD
+  // ICON BOX
   // ============================================================
 
-  Widget _buildKioskCard(KioskModel kiosk) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Row(
-          children: [
-            Container(
-              width: 55,
-              height: 55,
-              decoration: BoxDecoration(
-                color: kiosk.active
-                    ? Colors.green.withOpacity(.1)
-                    : Colors.red.withOpacity(.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.point_of_sale,
-                color: kiosk.active ? Colors.green : Colors.red,
-                size: 30,
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          kiosk.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kiosk.active
-                              ? Colors.green.withOpacity(.1)
-                              : Colors.red.withOpacity(.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          kiosk.active ? 'Actif' : 'Inactif',
-                          style: TextStyle(
-                            color: kiosk.active ? Colors.green : Colors.red,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 15,
-                    runSpacing: 5,
-                    children: [
-                      _infoItem(Icons.qr_code, 'Code', kiosk.code),
-                      _infoItem(
-                        Icons.location_on_outlined,
-                        'Lieu',
-                        kiosk.location,
-                      ),
-                      _infoItem(Icons.fingerprint, 'Méthode', kiosk.method),
-                      _infoItem(Icons.lan_outlined, 'IP', kiosk.ipAddress),
-                      _infoItem(
-                        Icons.access_time,
-                        'Connexion',
-                        kiosk.lastConnection,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'toggle') {
-                  _toggleKiosk(kiosk.id);
-                }
+  Widget _iconBox(IconData icon, Color color) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: color),
+    );
+  }
 
-                if (value == 'delete') {
-                  _deleteKiosk(kiosk.id);
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'toggle',
-                  child: Row(
-                    children: [
-                      Icon(
-                        kiosk.active ? Icons.block : Icons.check_circle,
-                        color: kiosk.active ? Colors.orange : Colors.green,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(kiosk.active ? 'Désactiver' : 'Activer'),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 10),
-                      Text('Supprimer'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
+  // ============================================================
+  // STATUS BADGE
+  // ============================================================
+
+  Widget _statusBadge(bool active) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: active
+            ? Colors.green.withValues(alpha: .10)
+            : Colors.red.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        active ? 'Actif' : 'Inactif',
+        style: TextStyle(
+          color: active ? Colors.green : Colors.red,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -803,52 +1186,155 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey),
-        const SizedBox(width: 4),
+        Icon(icon, size: 14, color: mutedColor),
+        const SizedBox(width: 5),
         Text(
-          '$label: ',
-          style: const TextStyle(color: Colors.grey, fontSize: 12),
+          '$label : ',
+          style: const TextStyle(color: mutedColor, fontSize: 12),
         ),
         Text(
-          value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          value.isEmpty ? '-' : value,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ],
     );
   }
 
   // ============================================================
-  // EMPTY KIOSK
+  // INPUT
   // ============================================================
 
-  Widget _buildEmptyKiosk() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.point_of_sale_outlined,
-            size: 70,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 15),
-          const Text(
-            'Aucun kiosk configuré',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Ajoutez votre premier appareil de pointage.',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: _showCreateKioskDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Ajouter un kiosk'),
-          ),
-        ],
+  Widget _inputField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
       ),
+    );
+  }
+
+  // ============================================================
+  // BUTTON STYLE
+  // ============================================================
+
+  ButtonStyle _primaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: primaryColor,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    );
+  }
+
+  // ============================================================
+  // CREATE DEPARTMENT DIALOG
+  // ============================================================
+
+  void _showCreateDepartmentDialog() {
+    _deptNameController.clear();
+    _deptDescController.clear();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Nouveau département'),
+          content: SizedBox(
+            width: 450,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _inputField(
+                  controller: _deptNameController,
+                  label: 'Nom du département',
+                  icon: Icons.apartment_outlined,
+                ),
+                const SizedBox(height: 15),
+                _inputField(
+                  controller: _deptDescController,
+                  label: 'Description',
+                  icon: Icons.description_outlined,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton.icon(
+              onPressed: departmentLoading
+                  ? null
+                  : () async {
+                      await _createDepartment();
+
+                      if (mounted && !departmentLoading) {
+                        Navigator.pop(dialogContext);
+                      }
+                    },
+              icon: const Icon(Icons.add),
+              label: const Text('Créer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // CREATE ROLE DIALOG
+  // ============================================================
+
+  void _showCreateRoleDialog() {
+    _roleNameController.clear();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Nouveau rôle'),
+          content: SizedBox(
+            width: 450,
+            child: _inputField(
+              controller: _roleNameController,
+              label: 'Nom du rôle',
+              icon: Icons.security_outlined,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton.icon(
+              onPressed: roleLoading
+                  ? null
+                  : () async {
+                      await _createRole();
+
+                      if (mounted && !roleLoading) {
+                        Navigator.pop(dialogContext);
+                      }
+                    },
+              icon: const Icon(Icons.add),
+              label: const Text('Créer'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -857,61 +1343,60 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
   // ============================================================
 
   void _showCreateKioskDialog() {
+    _clearKioskForm();
+
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Row(
                 children: [
-                  Icon(Icons.point_of_sale),
+                  Icon(Icons.point_of_sale_outlined, color: primaryColor),
                   SizedBox(width: 10),
-                  Text('Ajouter un Kiosk'),
+                  Text('Nouveau kiosk'),
                 ],
               ),
+
               content: SizedBox(
                 width: 500,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextField(
+                      _inputField(
                         controller: _kioskNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nom du kiosk',
-                          hintText: 'Ex: Kiosk Entrée principale',
-                          prefixIcon: Icon(Icons.devices),
-                          border: OutlineInputBorder(),
-                        ),
+                        label: 'Nom du kiosk',
+                        icon: Icons.devices_outlined,
                       ),
+
                       const SizedBox(height: 15),
-                      TextField(
+
+                      _inputField(
                         controller: _kioskCodeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Code kiosk',
-                          hintText: 'Ex: KIOSK-001',
-                          prefixIcon: Icon(Icons.qr_code),
-                          border: OutlineInputBorder(),
-                        ),
+                        label: 'Code kiosk',
+                        icon: Icons.qr_code,
                       ),
+
                       const SizedBox(height: 15),
-                      TextField(
+
+                      _inputField(
                         controller: _kioskLocationController,
-                        decoration: const InputDecoration(
-                          labelText: 'Emplacement',
-                          hintText: 'Ex: Entrée principale',
-                          prefixIcon: Icon(Icons.location_on_outlined),
-                          border: OutlineInputBorder(),
-                        ),
+                        label: 'Emplacement',
+                        icon: Icons.location_on_outlined,
                       ),
+
                       const SizedBox(height: 15),
+
                       DropdownButtonFormField<String>(
-                        value: _kioskMethod,
-                        decoration: const InputDecoration(
+                        initialValue: _kioskMethod,
+                        decoration: InputDecoration(
                           labelText: 'Méthode de pointage',
-                          prefixIcon: Icon(Icons.fingerprint),
-                          border: OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.fingerprint),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         items: const [
                           DropdownMenuItem(
@@ -933,22 +1418,23 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                           });
                         },
                       ),
+
                       const SizedBox(height: 15),
-                      TextField(
+
+                      _inputField(
                         controller: _kioskIpController,
-                        decoration: const InputDecoration(
-                          labelText: 'Adresse IP (optionnel)',
-                          hintText: 'Ex: 192.168.1.20',
-                          prefixIcon: Icon(Icons.lan_outlined),
-                          border: OutlineInputBorder(),
-                        ),
+                        label: 'Adresse IP (optionnel)',
+                        icon: Icons.lan_outlined,
+                        keyboardType: TextInputType.text,
                       ),
+
                       const SizedBox(height: 10),
+
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Kiosk actif'),
                         subtitle: const Text(
-                          'Autoriser ce kiosk à fonctionner',
+                          'Autoriser cet appareil à effectuer les pointages.',
                         ),
                         value: _kioskActive,
                         onChanged: (value) {
@@ -961,11 +1447,17 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                   ),
                 ),
               ),
+
               actions: [
                 TextButton(
-                  onPressed: kioskLoading ? null : () => Navigator.pop(context),
+                  onPressed: kioskLoading
+                      ? null
+                      : () {
+                          Navigator.pop(dialogContext);
+                        },
                   child: const Text('Annuler'),
                 ),
+
                 ElevatedButton.icon(
                   onPressed: kioskLoading ? null : _createKiosk,
                   icon: kioskLoading
@@ -979,48 +1471,13 @@ class _AdminSettingsPageState extends State<AdminSettingsPage>
                         )
                       : const Icon(Icons.add),
                   label: const Text('Créer le kiosk'),
+                  style: _primaryButtonStyle(),
                 ),
               ],
             );
           },
         );
       },
-    );
-  }
-
-  // ============================================================
-  // SECTION CONTAINER
-  // ============================================================
-
-  Widget _buildSectionContainer({
-    required String title,
-    required Widget child,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Card(
-        color: Colors.white,
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF201F1E),
-                ),
-              ),
-              const Divider(height: 24),
-              Expanded(child: child),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

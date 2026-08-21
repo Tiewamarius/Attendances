@@ -7,19 +7,106 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   AuthService._();
 
-  static Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
+  // ============================================================
+  // STORAGE KEYS
+  // ============================================================
 
-    final token = prefs.getString('token');
+  static const String _tokenKey = 'token';
+  static const String _userKey = 'user';
+  static const String _rolesKey = 'roles';
 
-    return token != null && token.isNotEmpty;
-  }
+  // ============================================================
+  // TOKEN
+  // ============================================================
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
 
-    return prefs.getString('token');
+    return prefs.getString(_tokenKey);
   }
+
+  static Future<bool> isLoggedIn() async {
+    final token = await getToken();
+
+    return token != null && token.isNotEmpty;
+  }
+
+  // ============================================================
+  // HEADERS
+  // ============================================================
+
+  static Future<Map<String, String>> _headers() async {
+    final token = await getToken();
+
+    return {
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty)
+        'Authorization': 'Bearer $token',
+    };
+  }
+
+  // ============================================================
+  // LOGIN
+  // ============================================================
+
+  static Future<bool> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.login),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        return false;
+      }
+
+      if (response.body.isEmpty) {
+        return false;
+      }
+
+      final body = jsonDecode(response.body);
+
+      if (body is! Map) {
+        return false;
+      }
+
+      final data = body['data'];
+
+      if (data is! Map) {
+        return false;
+      }
+
+      final token = data['token'];
+
+      if (token == null ||
+          token.toString().isEmpty) {
+        return false;
+      }
+
+      await saveLoginData(
+        Map<String, dynamic>.from(data),
+        token.toString(),
+      );
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ============================================================
+  // CURRENT USER
+  // ============================================================
 
   static Future<Map<String, dynamic>?> getCurrentUser() async {
     final token = await getToken();
@@ -30,24 +117,45 @@ class AuthService {
 
     try {
       final response = await http.get(
-        Uri.parse(ApiConfig.adminMe),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        Uri.parse(ApiConfig.me),
+        headers: await _headers(),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        return data['data'];
+      if (response.statusCode != 200) {
+        return null;
       }
 
-      return null;
-    } catch (e) {
+      if (response.body.isEmpty) {
+        return null;
+      }
+
+      final body = jsonDecode(response.body);
+
+      if (body is! Map) {
+        return null;
+      }
+
+      final data = body['data'] ?? body;
+
+      if (data is! Map) {
+        return null;
+      }
+
+      final user = data['user'] ?? data;
+
+      if (user is! Map) {
+        return null;
+      }
+
+      return Map<String, dynamic>.from(user);
+    } catch (_) {
       return null;
     }
   }
+
+  // ============================================================
+  // SAVE LOGIN DATA
+  // ============================================================
 
   static Future<void> saveLoginData(
     Map<String, dynamic> data,
@@ -55,68 +163,139 @@ class AuthService {
   ) async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setString('token', token);
+    await prefs.setString(
+      _tokenKey,
+      token,
+    );
 
-    if (data['user'] != null) {
-      await prefs.setString('user', jsonEncode(data['user']));
+    final user = data['user'];
+
+    if (user is Map) {
+      await prefs.setString(
+        _userKey,
+        jsonEncode(user),
+      );
     }
 
-    if (data['roles'] != null) {
-      await prefs.setString('roles', jsonEncode(data['roles']));
+    final roles = data['roles'];
+
+    if (roles is List) {
+      await prefs.setString(
+        _rolesKey,
+        jsonEncode(roles),
+      );
     }
   }
+
+  // ============================================================
+  // SAVED USER
+  // ============================================================
 
   static Future<Map<String, dynamic>?> getSavedUser() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final userJson = prefs.getString('user');
+    final userJson = prefs.getString(_userKey);
 
-    if (userJson == null) {
+    if (userJson == null ||
+        userJson.isEmpty) {
       return null;
     }
 
     try {
-      return jsonDecode(userJson);
+      final data = jsonDecode(userJson);
+
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+
+      return null;
     } catch (_) {
       return null;
     }
   }
+
+  // ============================================================
+  // SAVED ROLES
+  // ============================================================
 
   static Future<List<String>> getSavedRoles() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final rolesJson = prefs.getString('roles');
+    final rolesJson = prefs.getString(_rolesKey);
 
-    if (rolesJson == null) {
+    if (rolesJson == null ||
+        rolesJson.isEmpty) {
       return [];
     }
 
     try {
-      return List<String>.from(jsonDecode(rolesJson));
+      final data = jsonDecode(rolesJson);
+
+      if (data is! List) {
+        return [];
+      }
+
+      return data
+          .map((role) => role.toString())
+          .toList();
     } catch (_) {
       return [];
     }
   }
 
+  // ============================================================
+  // CHECK ROLE
+  // ============================================================
+
+  static Future<bool> hasRole(
+    String role,
+  ) async {
+    final roles = await getSavedRoles();
+
+    return roles.contains(role);
+  }
+
+  // ============================================================
+  // ADMIN
+  // ============================================================
+
+  static Future<bool> isSuperAdmin() async {
+    return hasRole('super_admin');
+  }
+
+  static Future<bool> isAdminRh() async {
+    return hasRole('admin_rh');
+  }
+
+  // ============================================================
+  // LOGOUT
+  // ============================================================
+
   static Future<void> logout() async {
     final token = await getToken();
 
-    if (token != null && token.isNotEmpty) {
+    if (token != null &&
+        token.isNotEmpty) {
       try {
         await http.post(
-          Uri.parse(ApiConfig.adminLogout),
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
+          Uri.parse(ApiConfig.logout),
+          headers: await _headers(),
         );
       } catch (_) {}
     }
 
+    await clearSession();
+  }
+
+  // ============================================================
+  // CLEAR SESSION
+  // ============================================================
+
+  static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.remove('token');
-    await prefs.remove('user');
-    await prefs.remove('roles');
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
+    await prefs.remove(_rolesKey);
   }
 }

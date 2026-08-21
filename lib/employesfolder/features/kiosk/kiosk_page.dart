@@ -200,7 +200,6 @@ class _KioskPageState extends State<KioskPage> {
 
             ElevatedButton(
               onPressed: () {
-                final pin = controller.text;
 
                 // Appel API ici
 

@@ -194,7 +194,7 @@ class _NavbarWidgetState extends State<NavbarWidget> {
                   children: [
                     CircleAvatar(
                       radius: 19,
-                      backgroundColor: roleColor.withOpacity(0.15),
+                      backgroundColor: roleColor.withValues(alpha: 0.15),
                       child: Text(
                         role,
                         style: TextStyle(

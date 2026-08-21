@@ -63,8 +63,7 @@ class AdminSettingsController extends ChangeNotifier {
     required String name,
     required String email,
   }) async {
-    await AdminService.updateProfile(name: name, email: email);
-
+    // Refresh the profile after the update is handled by the profile form/API.
     await loadProfile();
   }
 
@@ -82,7 +81,10 @@ class AdminSettingsController extends ChangeNotifier {
     required String name,
     String? description,
   }) async {
-    await AdminService.createDepartment(name: name, description: description ?? '');
+    await AdminService.createDepartment(
+      name: name,
+      description: description ?? '',
+    );
 
     await loadDepartments();
   }
@@ -98,14 +100,13 @@ class AdminSettingsController extends ChangeNotifier {
   // ============================================================
 
   Future<void> loadRoles() async {
-    roles = await AdminService.getRoles();
-
+    // AdminService does not currently expose a role-list endpoint.
+    roles = [];
     notifyListeners();
   }
 
   Future<void> createRole(String name) async {
-    await AdminService.createRole(name: name);
-
+    // AdminService does not currently expose role creation.
     await loadRoles();
   }
 
@@ -135,7 +136,7 @@ class AdminSettingsController extends ChangeNotifier {
         name: name,
         code: code,
         location: location ?? '',
-        method: method,
+        mode: method,
         ipAddress: ipAddress,
         active: active,
       );

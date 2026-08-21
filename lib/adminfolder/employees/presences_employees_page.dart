@@ -295,7 +295,7 @@ class _PresencesEmployeesPageState extends State<PresencesEmployeesPage> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.025),
+            color: Colors.black.withValues(alpha: 0.025),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -307,7 +307,7 @@ class _PresencesEmployeesPageState extends State<PresencesEmployeesPage> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: color.withOpacity(.10),
+              color: color.withValues(alpha: .10),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -535,7 +535,7 @@ class _PresencesEmployeesPageState extends State<PresencesEmployeesPage> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFF4F46E5).withOpacity(.10),
+                color: const Color(0xFF4F46E5).withValues(alpha: .10),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -634,7 +634,7 @@ class _PresencesEmployeesPageState extends State<PresencesEmployeesPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(.10),
+        color: color.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -699,7 +699,7 @@ class _PresencesEmployeesPageState extends State<PresencesEmployeesPage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4F46E5).withOpacity(.10),
+                  color: const Color(0xFF4F46E5).withValues(alpha: .10),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,

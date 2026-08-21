@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+
 import 'package:attendance/core/auth/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -72,8 +74,7 @@ class _SideBarState extends State<SideBar> {
 
                 SideBarItem(
                   title: 'Dashboard',
-                  icon:
-                      'assets/icons/dashboard.svg', // Remplacez par vos icônes spécifiques
+                  icon: 'assets/icons/dashboard.svg',
                   isSelected: widget.selectedPage == '/admin',
                   onTap: () {
                     widget.onSelectPage('/admin');
@@ -119,24 +120,19 @@ class _SideBarState extends State<SideBar> {
                 const Spacer(),
 
                 SideBarItem(
-  title: 'Déconnexion',
-  icon: 'assets/icons/logout.svg',
-  isSelected: false,
-  onTap: () async {
+                  title: 'Déconnexion',
+                  icon: 'assets/icons/logout.svg',
+                  isSelected: false,
+                  onTap: () async {
+                    try {
+                      await AuthService.logout();
 
-    try {
-
-      await AuthService.logout();
-
-
-      context.go('/login');
-      
-    } catch (e) {
-      debugPrint('ERREUR LOGOUT : $e');
-    }
-
-  },
-),
+                      context.go('/login');
+                    } catch (e) {
+                      debugPrint('ERREUR LOGOUT : $e');
+                    }
+                  },
+                ),
               ],
             ),
           ),

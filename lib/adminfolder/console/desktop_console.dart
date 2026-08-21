@@ -1,5 +1,6 @@
 import 'package:attendance/adminfolder/pages/admin_page.dart';
 import 'package:attendance/adminfolder/employees/presences_employees_page.dart';
+import 'package:attendance/adminfolder/employees/employee_leaves_page.dart';
 import 'package:attendance/adminfolder/pages/admin_settings_page.dart';
 import 'package:attendance/adminfolder/employees/employes_page.dart';
 import 'package:attendance/adminfolder/widgets/navbar_widget.dart';
@@ -37,6 +38,10 @@ class _DesktopConsoleState extends State<DesktopConsole> {
 
       case '/attendance':
         return const PresencesEmployeesPage();
+
+      case '/leaves':
+        return const EmployeeLeavesPage();
+
       default:
         return Text('Page active : $selectedPage');
     }

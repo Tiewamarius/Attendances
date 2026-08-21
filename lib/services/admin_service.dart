@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:attendance/core/auth/auth_service.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:attendance/models/model_department.dart';
-import 'package:attendance/models/model_roles.dart';
 import 'package:attendance/models/users/user_model.dart';
 import 'package:http/http.dart' as http;
 
@@ -28,13 +27,29 @@ class AdminService {
   }
 
   // ============================================================
-  // PROFIL
+  // RESPONSE
+  // ============================================================
+
+  static dynamic _decodeResponse(http.Response response) {
+    if (response.body.isEmpty) {
+      return null;
+    }
+
+    try {
+      return jsonDecode(response.body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // PROFIL ADMIN
   // ============================================================
 
   static Future<UserModel?> getProfile() async {
     try {
       final response = await http.get(
-        Uri.parse(ApiConfig.adminMe),
+        Uri.parse(ApiConfig.me),
         headers: await _headers(),
       );
 
@@ -42,37 +57,32 @@ class AdminService {
         return null;
       }
 
-      final body = jsonDecode(response.body);
+      final body = _decodeResponse(response);
 
-      final data = body['data'] ?? body;
+      if (body == null) {
+        return null;
+      }
 
-      final user = data['user'] ?? data;
+      final dynamic rawData = body is Map
+          ? body['data'] ?? body
+          : body;
+
+      if (rawData is! Map) {
+        return null;
+      }
+
+      final dynamic rawUser =
+          rawData['user'] ?? rawData;
+
+      if (rawUser is! Map) {
+        return null;
+      }
 
       return UserModel.fromJson(
-        Map<String, dynamic>.from(user),
+        Map<String, dynamic>.from(rawUser),
       );
     } catch (_) {
       return null;
-    }
-  }
-
-  static Future<bool> updateProfile({
-    required String name,
-    required String email,
-  }) async {
-    try {
-      final response = await http.put(
-        Uri.parse(ApiConfig.adminUpdate),
-        headers: await _headers(json: true),
-        body: jsonEncode({
-          'name': name,
-          'email': email,
-        }),
-      );
-
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
     }
   }
 
@@ -91,11 +101,26 @@ class AdminService {
         return [];
       }
 
-      final body = jsonDecode(response.body);
+      final body = _decodeResponse(response);
 
-      final List data = body['data'] ?? body;
+      if (body == null) {
+        return [];
+      }
+
+      dynamic data;
+
+      if (body is Map) {
+        data = body['data'] ?? body;
+      } else {
+        data = body;
+      }
+
+      if (data is! List) {
+        return [];
+      }
 
       return data
+          .whereType<Map>()
           .map(
             (item) => DepartmentModel.fromJson(
               Map<String, dynamic>.from(item),
@@ -107,9 +132,54 @@ class AdminService {
     }
   }
 
-  static Future<bool> createDepartment({
+  // ============================================================
+  // DEPARTEMENT - DETAIL
+  // ============================================================
+
+  static Future<DepartmentModel?> getDepartment(
+    int id,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          ApiConfig.department(id),
+        ),
+        headers: await _headers(),
+      );
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = _decodeResponse(response);
+
+      if (body == null) {
+        return null;
+      }
+
+      final dynamic data = body is Map
+          ? body['data'] ?? body
+          : body;
+
+      if (data is! Map) {
+        return null;
+      }
+
+      return DepartmentModel.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // DEPARTEMENT - CREATION
+  // ============================================================
+
+  static Future<DepartmentModel?> createDepartment({
     required String name,
-    required String description,
+    String? description,
   }) async {
     try {
       final response = await http.post(
@@ -117,21 +187,96 @@ class AdminService {
         headers: await _headers(json: true),
         body: jsonEncode({
           'name': name,
-          'description': description,
+          'description': ?description,
         }),
       );
 
-      return response.statusCode == 200 ||
-          response.statusCode == 201;
+      if (response.statusCode != 200 &&
+          response.statusCode != 201) {
+        return null;
+      }
+
+      final body = _decodeResponse(response);
+
+      if (body == null) {
+        return null;
+      }
+
+      final dynamic data = body is Map
+          ? body['data'] ?? body
+          : body;
+
+      if (data is! Map) {
+        return null;
+      }
+
+      return DepartmentModel.fromJson(
+        Map<String, dynamic>.from(data),
+      );
     } catch (_) {
-      return false;
+      return null;
     }
   }
 
-  static Future<bool> deleteDepartment(int id) async {
+  // ============================================================
+  // DEPARTEMENT - MODIFICATION
+  // ============================================================
+
+  static Future<DepartmentModel?> updateDepartment({
+    required int id,
+    required String name,
+    String? description,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse(
+          ApiConfig.department(id),
+        ),
+        headers: await _headers(json: true),
+        body: jsonEncode({
+          'name': name,
+          'description': ?description,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = _decodeResponse(response);
+
+      if (body == null) {
+        return null;
+      }
+
+      final dynamic data = body is Map
+          ? body['data'] ?? body
+          : body;
+
+      if (data is! Map) {
+        return null;
+      }
+
+      return DepartmentModel.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // DEPARTEMENT - SUPPRESSION
+  // ============================================================
+
+  static Future<bool> deleteDepartment(
+    int id,
+  ) async {
     try {
       final response = await http.delete(
-        Uri.parse(ApiConfig.department(id)),
+        Uri.parse(
+          ApiConfig.department(id),
+        ),
         headers: await _headers(),
       );
 
@@ -143,13 +288,13 @@ class AdminService {
   }
 
   // ============================================================
-  // ROLES
+  // UTILISATEURS
   // ============================================================
 
-  static Future<List<RoleModel>> getRoles() async {
+  static Future<List<UserModel>> getUsers() async {
     try {
       final response = await http.get(
-        Uri.parse(ApiConfig.roles),
+        Uri.parse(ApiConfig.users),
         headers: await _headers(),
       );
 
@@ -157,13 +302,28 @@ class AdminService {
         return [];
       }
 
-      final body = jsonDecode(response.body);
+      final body = _decodeResponse(response);
 
-      final List data = body['data'] ?? body;
+      if (body == null) {
+        return [];
+      }
+
+      dynamic data;
+
+      if (body is Map) {
+        data = body['data'] ?? body;
+      } else {
+        data = body;
+      }
+
+      if (data is! List) {
+        return [];
+      }
 
       return data
+          .whereType<Map>()
           .map(
-            (item) => RoleModel.fromJson(
+            (item) => UserModel.fromJson(
               Map<String, dynamic>.from(item),
             ),
           )
@@ -173,20 +333,138 @@ class AdminService {
     }
   }
 
-  static Future<bool> createRole({
+  // ============================================================
+  // UTILISATEUR - DETAIL
+  // ============================================================
+
+  static Future<UserModel?> getUser(
+    int id,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConfig.user(id)),
+        headers: await _headers(),
+      );
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final body = _decodeResponse(response);
+
+      if (body == null) {
+        return null;
+      }
+
+      final dynamic data = body is Map
+          ? body['data'] ?? body
+          : body;
+
+      if (data is! Map) {
+        return null;
+      }
+
+      return UserModel.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // UTILISATEUR - CREATION
+  // ============================================================
+
+  static Future<bool> createUser({
     required String name,
+    required String email,
+    required String password,
+    String? role,
   }) async {
     try {
       final response = await http.post(
-        Uri.parse(ApiConfig.roles),
+        Uri.parse(ApiConfig.users),
         headers: await _headers(json: true),
         body: jsonEncode({
           'name': name,
+          'email': email,
+          'password': password,
+          'role': ?role,
         }),
       );
 
       return response.statusCode == 200 ||
           response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ============================================================
+  // UTILISATEUR - MODIFICATION
+  // ============================================================
+
+  static Future<bool> updateUser({
+    required int id,
+    required String name,
+    required String email,
+    String? role,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse(ApiConfig.user(id)),
+        headers: await _headers(json: true),
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'role': ?role,
+        }),
+      );
+
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ============================================================
+  // UTILISATEUR - SUPPRESSION
+  // ============================================================
+
+  static Future<bool> deleteUser(
+    int id,
+  ) async {
+    try {
+      final response = await http.delete(
+        Uri.parse(ApiConfig.user(id)),
+        headers: await _headers(),
+      );
+
+      return response.statusCode == 200 ||
+          response.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ============================================================
+  // DECONNEXION
+  // ============================================================
+
+  static Future<bool> logout() async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.logout),
+        headers: await _headers(),
+      );
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 204) {
+        return true;
+      }
+
+      return false;
     } catch (_) {
       return false;
     }

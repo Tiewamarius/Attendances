@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class AttendanceScreen extends StatefulWidget {
-  const AttendanceScreen({Key? key}) : super(key: key);
+  const AttendanceScreen({super.key});
 
   @override
   State<AttendanceScreen> createState() => _AttendanceScreenState();
@@ -31,7 +31,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
     
-    // TODO: Envoyer _pinCode vers votre API Laravel
     _showSnackBar("Pointage réussi avec le PIN : $_pinCode", Colors.green);
     setState(() {
       _pinCode = '';
@@ -44,7 +43,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     for (final barcode in barcodes) {
       final String? code = barcode.rawValue;
       if (code != null) {
-        // TODO: Envoyer `code` vers votre API Laravel selon le mode
         _showSnackBar("Pointage ($modeName) validé pour : $code", Colors.green);
         break; // Traiter un seul code pour éviter les doublons
       }

@@ -12,16 +12,13 @@ class KioskService {
   // HEADERS
   // ============================================================
 
-  static Future<Map<String, String>> _headers({
-    bool json = false,
-  }) async {
+  static Future<Map<String, String>> _headers({bool json = false}) async {
     final token = await AuthService.getToken();
 
     return {
       'Accept': 'application/json',
+      'Authorization': 'Bearer ${token ?? ''}',
       if (json) 'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty)
-        'Authorization': 'Bearer $token',
     };
   }
 
@@ -30,105 +27,178 @@ class KioskService {
   // ============================================================
 
   static Future<List<KioskModel>> getKiosks() async {
-    try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.kiosks),
-        headers: await _headers(),
+    final response = await http.get(
+      Uri.parse(ApiConfig.kiosks),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Impossible de récupérer les kiosks '
+        '(${response.statusCode})',
       );
-
-      print('KIOSKS STATUS : ${response.statusCode}');
-      print('KIOSKS RESPONSE : ${response.body}');
-
-      if (response.statusCode != 200) {
-        return [];
-      }
-
-      final body = jsonDecode(response.body);
-
-      final List data = body['data'] ?? body;
-
-      return data
-          .map(
-            (item) => KioskModel.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
-          )
-          .toList();
-    } catch (e) {
-      print('Erreur KIOSKS : $e');
-      return [];
     }
+
+    final body = jsonDecode(response.body);
+
+    final data = body['data'] ?? body;
+
+    if (data is! List) {
+      throw Exception('Format de réponse kiosks invalide');
+    }
+
+    return data
+        .map<KioskModel>(
+          (item) => KioskModel.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList();
+  }
+
+  // ============================================================
+  // GET KIOSK
+  // ============================================================
+
+  static Future<KioskModel> getKiosk(int id) async {
+    final response = await http.get(
+      Uri.parse(ApiConfig.kiosk(id)),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Impossible de récupérer le kiosk '
+        '(${response.statusCode})',
+      );
+    }
+
+    final body = jsonDecode(response.body);
+
+    final data = body['data'] ?? body;
+
+    return KioskModel.fromJson(Map<String, dynamic>.from(data));
   }
 
   // ============================================================
   // CREATE
   // ============================================================
 
-  static Future<bool> createKiosk({
+  static Future<KioskModel> createKiosk({
     required String name,
     required String code,
-    required String location,
-    required String method,
+    String? location,
+    required String mode,
     String? ipAddress,
     required bool active,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.kiosks),
-        headers: await _headers(json: true),
-        body: jsonEncode({
-          'name': name,
-          'code': code,
-          'location': location,
-          'method': method,
-          'ip_address': ipAddress,
-          'active': active,
-        }),
-      );
+    final response = await http.post(
+      Uri.parse(ApiConfig.kiosks),
+      headers: await _headers(json: true),
+      body: jsonEncode({
+        'name': name,
+        'code': code,
+        'location': location,
+        'mode': mode,
+        'ip_address': ipAddress,
+        'active': active,
+      }),
+    );
 
-      print('CREATE KIOSK STATUS : ${response.statusCode}');
-      print('CREATE KIOSK RESPONSE : ${response.body}');
-
-      return response.statusCode == 200 ||
-          response.statusCode == 201;
-    } catch (e) {
-      print('Erreur création kiosk : $e');
-      return false;
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_extractError(response));
     }
+
+    final body = jsonDecode(response.body);
+
+    final data = body['data'] ?? body;
+
+    return KioskModel.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  // ============================================================
+  // UPDATE
+  // ============================================================
+
+  static Future<KioskModel> updateKiosk({
+    required int id,
+    required String name,
+    required String code,
+    String? location,
+    required String mode,
+    String? ipAddress,
+    required bool active,
+  }) async {
+    final response = await http.put(
+      Uri.parse(ApiConfig.kiosk(id)),
+      headers: await _headers(json: true),
+      body: jsonEncode({
+        'name': name,
+        'code': code,
+        'location': location,
+        'mode': mode,
+        'ip_address': ipAddress,
+        'active': active,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
+    }
+
+    final body = jsonDecode(response.body);
+
+    final data = body['data'] ?? body;
+
+    return KioskModel.fromJson(Map<String, dynamic>.from(data));
   }
 
   // ============================================================
   // TOGGLE
   // ============================================================
 
-  static Future<bool> toggleKiosk(int id) async {
-    try {
-      final response = await http.patch(
-        Uri.parse(ApiConfig.kioskToggle(id)),
-        headers: await _headers(),
-      );
+  static Future<KioskModel> toggleKiosk(int id) async {
+    final response = await http.patch(
+      Uri.parse(ApiConfig.kioskToggle(id)),
+      headers: await _headers(),
+    );
 
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
+    if (response.statusCode != 200) {
+      throw Exception(_extractError(response));
     }
+
+    final body = jsonDecode(response.body);
+
+    final data = body['data'] ?? body;
+
+    return KioskModel.fromJson(Map<String, dynamic>.from(data));
   }
 
   // ============================================================
   // DELETE
   // ============================================================
 
-  static Future<bool> deleteKiosk(int id) async {
-    try {
-      final response = await http.delete(
-        Uri.parse(ApiConfig.kiosk(id)),
-        headers: await _headers(),
-      );
+  static Future<void> deleteKiosk(int id) async {
+    final response = await http.delete(
+      Uri.parse(ApiConfig.kiosk(id)),
+      headers: await _headers(),
+    );
 
-      return response.statusCode == 200 ||
-          response.statusCode == 204;
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_extractError(response));
+    }
+  }
+
+  // ============================================================
+  // ERROR
+  // ============================================================
+
+  static String _extractError(http.Response response) {
+    try {
+      final body = jsonDecode(response.body);
+
+      return body['message']?.toString() ??
+          'Erreur serveur (${response.statusCode})';
     } catch (_) {
-      return false;
+      return 'Erreur serveur (${response.statusCode})';
     }
   }
 }

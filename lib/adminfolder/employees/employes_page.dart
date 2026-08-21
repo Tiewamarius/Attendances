@@ -232,12 +232,14 @@ class _EmployeesPageState extends State<EmployeesPage> {
                       // Récupération du PIN temporaire renvoyé par Laravel
                       final temporaryPin = responseData['data']?['temporary_pin'];
 
+                      // ignore: use_build_context_synchronously
                       Navigator.pop(context); // Fermer le modal d'ajout
                       fetchEmployees(); // Rafraîchir la liste
 
                       // Afficher le code PIN temporaire généré par le serveur
                       if (temporaryPin != null) {
                         showDialog(
+                          // ignore: use_build_context_synchronously
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('Employé créé avec succès'),
@@ -257,11 +259,13 @@ class _EmployeesPageState extends State<EmployeesPage> {
                     } else {
                       // Afficher une erreur si Laravel retourne un échec de validation (ex: email déjà pris)
                       final errorData = jsonDecode(response.body);
+                      // ignore: use_build_context_synchronously
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(errorData)),
                       );
                     }
                   } catch (e) {
+                    // ignore: use_build_context_synchronously
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Erreur de connexion au serveur')),
                     );
@@ -436,7 +440,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
                                         CircleAvatar(
                                           radius: 24,
                                           backgroundColor: accentBlue
-                                              .withOpacity(0.2),
+                                              .withValues(alpha: 0.2),
                                           backgroundImage: emp['avatar'] != null
                                               ? NetworkImage(emp['avatar'])
                                               : null,
@@ -571,7 +575,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
           children: [
             CircleAvatar(
               radius: 32,
-              backgroundColor: accentBlue.withOpacity(0.2),
+              backgroundColor: accentBlue.withValues(alpha: 0.2),
               backgroundImage: emp['avatar'] != null
                   ? NetworkImage(emp['avatar'])
                   : null,

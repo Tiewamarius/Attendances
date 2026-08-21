@@ -1,7 +1,6 @@
 import 'package:attendance/console_page.dart';
 import 'package:attendance/auth/setup_admin_page.dart';
 import 'package:attendance/employesfolder/employee_console_page.dart';
-import 'package:attendance/employesfolder/pages/employee_home_page.dart.dart';
 import 'package:attendance/employesfolder/features/kiosk/kiosk_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

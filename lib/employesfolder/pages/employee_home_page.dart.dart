@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:attendance/models/employees/employee_model.dart';
 import 'package:flutter/material.dart';
 
 class EmployeHome extends StatefulWidget {
@@ -40,9 +39,6 @@ class _EmployeHomeState extends State<EmployeHome> {
     super.dispose();
   }
 
-  Employee? _employee;
-  bool _loadingEmployee = true;
-   String? _error;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,7 +107,7 @@ class _EmployeHomeState extends State<EmployeHome> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -150,7 +146,7 @@ class _EmployeHomeState extends State<EmployeHome> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -295,7 +291,7 @@ class _EmployeHomeState extends State<EmployeHome> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5).withOpacity(0.6),
+                        color: const Color(0xFFECFDF5).withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: const Color(0xFFA7F3D0)),
                       ),
@@ -360,7 +356,7 @@ class _EmployeHomeState extends State<EmployeHome> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),

@@ -1,82 +1,297 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
   ApiConfig._();
-
-
-static const String adminMe = '$baseUrl/auth/me';
-
-static const String adminUpdate = '$baseUrl/admin/update';
-
-static const String departments = '$baseUrl/departments';
-
-static String department(int id) =>
-    '$baseUrl/departments/$id';
-
-static const String roles = '$baseUrl/roles';
-
-static const String kiosks = '$baseUrl/kiosks';
-
-static String kiosk(int id) =>
-    '$baseUrl/kiosks/$id';
-
-static String kioskToggle(int id) =>
-    '$baseUrl/kiosks/$id/toggle';
-
 
   // ============================================================
   // BASE URL
   // ============================================================
 
-  static const String baseUrl = 'https://ekklesiaciel.com/api/v1';
+  static const String productionUrl =
+      'https://ekklesiaciel.com/api/v1';
+
+  static const String webLocalUrl =
+      'http://127.0.0.1:8000/api/v1';
+
+  static const String androidEmulatorUrl =
+      'http://10.0.2.2:8000/api/v1';
+
+  // Remplace cette adresse par l'adresse IP locale de ton PC.
+  static const String physicalDeviceUrl =
+      'http://192.168.1.100:8000/api/v1';
+
+  // Retourne l'URL adaptée à l'environnement.
+  static String get baseUrl {
+    if (kReleaseMode) {
+      return productionUrl;
+    }
+
+    if (kIsWeb) {
+      return webLocalUrl;
+    }
+
+    return physicalDeviceUrl;
+  }
 
   // ============================================================
-  // SETUP / ADMINISTRATION INITIALE
+  // SETUP / INSTALLATION INITIALE
   // ============================================================
 
-  static const String setupAdmin = 'https://ekklesiaciel.com/api/setup/admin';
+  static String get setupRoles =>
+      '$baseUrl/setup/roles';
+
+  static String get setupAdmin =>
+      '$baseUrl/setup/admin';
 
   // ============================================================
-  // ADMIN
+  // AUTHENTIFICATION
   // ============================================================
 
-  // -------------------------
-  // Authentification Admin
-  // -------------------------
+  static String get login =>
+      '$baseUrl/auth/login';
 
-  static const String adminLogin = '$baseUrl/auth/login';
+  static String get logout =>
+      '$baseUrl/auth/logout';
 
-  static const String adminLogout = '$baseUrl/auth/logout';
+  static String get me =>
+      '$baseUrl/auth/me';
 
-  // -------------------------
-  // Dashboard Admin
-  // -------------------------
+  // ============================================================
+  // DASHBOARD
+  // ============================================================
 
-  static const String adminDashboard = '$baseUrl/dashboard';
+  static String get dashboard =>
+      '$baseUrl/dashboard';
 
-  // -------------------------
-  // Utilisateurs
-  // -------------------------
+  // ============================================================
+  // UTILISATEURS
+  // ============================================================
 
-  static const String users = '$baseUrl/users';
+  static String get users =>
+      '$baseUrl/users';
 
-  // -------------------------
-  // Employés - Administration
-  // -------------------------
+  static String user(int id) =>
+      '$baseUrl/users/$id';
 
-  static const String employees = '$baseUrl/employees';
+  // ============================================================
+  // DEPARTEMENTS
+  // ============================================================
 
-  static String employee(int id) => '$baseUrl/employees/$id';
+  static String get departments =>
+      '$baseUrl/departments';
+
+  // Détail d'un département.
+
+  static String department(int id) =>
+      '$baseUrl/departments/$id';
+
+  // ============================================================
+  // ROLES
+  // ============================================================
+
+  // Tous les rôles.
+
+  static String get roles =>
+      '$baseUrl/roles';
+
+  // Détail d'un rôle.
+
+  static String role(int id) =>
+      '$baseUrl/roles/$id';
+
+  // Supprimer un rôle.
+
+  static String roleDelete(int id) =>
+      '$baseUrl/roles/$id';
+
+  // ============================================================
+  // EMPLOYES - ADMINISTRATION RH
+  // ============================================================
+
+  static String get employees =>
+      '$baseUrl/employees';
+
+  static String employee(int id) =>
+      '$baseUrl/employees/$id';
+
+  // Informations d'un employé.
+
+  static String employeeAttendance(int id) =>
+      '$baseUrl/employees/$id/attendance';
+
+  static String employeeLeaves(int id) =>
+      '$baseUrl/employees/$id/leaves';
+
+  static String employeePermissions(int id) =>
+      '$baseUrl/employees/$id/permissions';
+
+  // Générer le PIN d'un employé.
 
   static String generateEmployeePin(int id) =>
       '$baseUrl/employees/$id/generate-pin';
 
+  // Générer le QR d'un employé.
+
   static String generateEmployeeQr(int id) =>
       '$baseUrl/employees/$id/generate-qr';
 
-  // -------------------------
-  // Congés - Administration & RH
-  // -------------------------
+  // ============================================================
+  // PROFIL EMPLOYE CONNECTE
+  // ============================================================
 
-  static const String leaves = '$baseUrl/leaves';
+  static String get employeeProfile =>
+      '$baseUrl/employee/profile';
+
+  // ============================================================
+  // POINTAGES
+  // ============================================================
+
+  // Tous les pointages.
+
+  static String get attendance =>
+      '$baseUrl/attendance';
+
+  // Détail d'un pointage.
+
+  static String attendanceDetails(int id) =>
+      '$baseUrl/attendance/$id';
+
+  // Pointage du jour.
+
+  static String get attendanceToday =>
+      '$baseUrl/attendance/today';
+
+  // Historique des pointages.
+
+  static String get attendanceHistory =>
+      '$baseUrl/attendance/history';
+
+  // Check-in.
+
+  static String get checkIn =>
+      '$baseUrl/attendance/check-in';
+
+  // Check-out.
+
+  static String get checkOut =>
+      '$baseUrl/attendance/check-out';
+
+  // ============================================================
+  // KIOSKS - ADMINISTRATION
+  // ============================================================
+
+  static String get kiosks =>
+      '$baseUrl/kiosks';
+
+  // Détail d'un kiosk.
+
+  static String kiosk(int id) =>
+      '$baseUrl/kiosks/$id';
+
+  // Logs d'un kiosk.
+
+  static String kioskLogs(int id) =>
+      '$baseUrl/kiosks/$id/logs';
+
+  // Activer ou désactiver un kiosk.
+
+  static String kioskToggle(int id) =>
+      '$baseUrl/kiosks/$id/toggle';
+
+  // ============================================================
+  // KIOSK - AUTHENTIFICATION
+  // ============================================================
+
+  static String get kioskLogin =>
+      '$baseUrl/kiosk/login';
+
+  // ============================================================
+  // KIOSK - OPERATIONS
+  // ============================================================
+
+  // Heartbeat du kiosk.
+
+  static String get kioskHeartbeat =>
+      '$baseUrl/kiosk/heartbeat';
+
+  // Scan QR depuis le kiosk.
+
+  static String get kioskQr =>
+      '$baseUrl/kiosk/scan-qr';
+
+  // Vérification PIN depuis le kiosk.
+
+  static String get kioskPin =>
+      '$baseUrl/kiosk/check-pin';
+
+  // Vérification caméra.
+
+  static String get kioskCameraCheck =>
+      '$baseUrl/kiosk/camera-check';
+
+  // ============================================================
+  // QR EMPLOYE
+  // ============================================================
+
+  // Générer un QR.
+
+  static String get qrGenerate =>
+      '$baseUrl/qr/generate';
+
+  // Rafraîchir un QR.
+
+  static String get qrRefresh =>
+      '$baseUrl/qr/refresh';
+
+  // Désactiver un QR.
+
+  static String get qrDisable =>
+      '$baseUrl/qr/disable';
+
+  // ============================================================
+  // PIN EMPLOYE
+  // ============================================================
+
+  // Modifier le PIN.
+
+  static String get pinChange =>
+      '$baseUrl/pin/change';
+
+  // ============================================================
+  // CONGES
+  // ============================================================
+
+  // Toutes les demandes de congé.
+
+  static String get leaves =>
+      '$baseUrl/leaves';
+
+  // Détail d'un congé.
+
+  static String leave(int id) =>
+      '$baseUrl/leaves/$id';
+
+  // Types de congés.
+
+  static String get leaveTypes =>
+      '$baseUrl/leaves/types';
+
+  // Solde de congés.
+
+  static String get leaveBalance =>
+      '$baseUrl/leaves/balance';
+
+  // Mes congés.
+
+  static String get myLeaves =>
+      '$baseUrl/leaves/my';
+
+  // Créer une demande de congé.
+
+  static String get createLeave =>
+      '$baseUrl/leaves';
+
+  // Validation Manager.
 
   static String managerApproveLeave(int id) =>
       '$baseUrl/leaves/$id/manager-approve';
@@ -84,71 +299,85 @@ static String kioskToggle(int id) =>
   static String managerRejectLeave(int id) =>
       '$baseUrl/leaves/$id/manager-reject';
 
-  static String hrApproveLeave(int id) => '$baseUrl/leaves/$id/hr-approve';
+  // Validation RH.
 
-  static String hrRejectLeave(int id) => '$baseUrl/leaves/$id/hr-reject';
+  static String hrApproveLeave(int id) =>
+      '$baseUrl/leaves/$id/hr-approve';
 
-  // -------------------------
-  // Permissions
-  // -------------------------
-
-  static const String permissions = '$baseUrl/permissions';
-
-  // -------------------------
-  // Rapports
-  // -------------------------
-
-  static const String reportAttendance = '$baseUrl/reports/attendance';
+  static String hrRejectLeave(int id) =>
+      '$baseUrl/leaves/$id/hr-reject';
 
   // ============================================================
-  // EMPLOYEE
+  // PERMISSIONS
   // ============================================================
 
-  // -------------------------
-  // Profil
-  // -------------------------
+  // Toutes les demandes de permission.
 
-  static const String employeeProfile = '$baseUrl/employee/profile';
+  static String get permissions =>
+      '$baseUrl/permissions';
 
-  // -------------------------
-  // Présence
-  // -------------------------
+  // Détail d'une permission.
 
-  static const String attendanceToday = '$baseUrl/attendance/today';
+  static String permission(int id) =>
+      '$baseUrl/permissions/$id';
 
-  static const String attendanceHistory = '$baseUrl/attendance/history';
+  // Mes permissions.
 
-  static const String checkIn = '$baseUrl/attendance/check-in';
+  static String get myPermissions =>
+      '$baseUrl/permissions/my';
 
-  static const String checkOut = '$baseUrl/attendance/check-out';
+  // Créer une demande de permission.
 
-  // -------------------------
-  // Congés
-  // -------------------------
+  static String get createPermission =>
+      '$baseUrl/permissions';
 
-  static const String myLeaves = '$baseUrl/leaves/my';
+  // Validation Manager.
 
-  static const String leaveBalance = '$baseUrl/leaves/balance';
+  static String managerApprovePermission(int id) =>
+      '$baseUrl/permissions/$id/manager-approve';
 
-  // -------------------------
-  // Permissions
-  // -------------------------
+  static String managerRejectPermission(int id) =>
+      '$baseUrl/permissions/$id/manager-reject';
 
-  static const String myPermissions = '$baseUrl/permissions/my';
+  // Validation RH.
 
+  static String hrApprovePermission(int id) =>
+      '$baseUrl/permissions/$id/hr-approve';
 
+  static String hrRejectPermission(int id) =>
+      '$baseUrl/permissions/$id/hr-reject';
 
-  // -------------------------
-  // Authentification Kiosk
-  // -------------------------
+  // ============================================================
+  // RAPPORTS RH
+  // ============================================================
 
-  static const String kioskLogin = '$baseUrl/kiosk/login';
+  // Dashboard des rapports.
 
-  // -------------------------
-  // Scan / QR / PIN
-  // -------------------------
+  static String get reportDashboard =>
+      '$baseUrl/reports/dashboard';
 
-  static const String kioskQr = '$baseUrl/kiosk/scan-qr';
+  // Rapport des pointages.
 
-  static const String kioskPin = '$baseUrl/kiosk/check-pin';
+  static String get reportAttendance =>
+      '$baseUrl/reports/attendance';
+
+  // Export des pointages.
+
+  static String get reportAttendanceExport =>
+      '$baseUrl/reports/attendance/export';
+
+  // Rapport des congés.
+
+  static String get reportLeaves =>
+      '$baseUrl/reports/leaves';
+
+  // Export des congés.
+
+  static String get reportLeavesExport =>
+      '$baseUrl/reports/leaves/export';
+
+  // Rapport des permissions.
+
+  static String get reportPermissions =>
+      '$baseUrl/reports/permissions';
 }
