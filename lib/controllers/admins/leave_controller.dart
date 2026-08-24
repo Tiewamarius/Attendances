@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:attendance/models/model_leave.dart';
-import 'package:attendance/services/leave_service.dart';
+import 'package:attendance/models/admins/leave_model..dart';
+import 'package:attendance/services/admins/leave_service.dart';
 
 class LeaveController extends ChangeNotifier {
   // ============================================================

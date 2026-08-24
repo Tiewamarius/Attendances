@@ -22,7 +22,13 @@ class AuthService {
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
 
-    return prefs.getString(_tokenKey);
+    final token = prefs.getString(_tokenKey);
+
+    if (token == null || token.isEmpty) {
+      return null;
+    }
+
+    return token;
   }
 
   static Future<bool> isLoggedIn() async {
@@ -35,11 +41,14 @@ class AuthService {
   // HEADERS
   // ============================================================
 
-  static Future<Map<String, String>> _headers() async {
+  static Future<Map<String, String>> _headers({
+    bool contentType = false,
+  }) async {
     final token = await getToken();
 
     return {
       'Accept': 'application/json',
+      if (contentType) 'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty)
         'Authorization': 'Bearer $token',
     };
@@ -47,6 +56,8 @@ class AuthService {
 
   // ============================================================
   // LOGIN
+  //
+  // POST /api/v1/auth/login
   // ============================================================
 
   static Future<bool> login({
@@ -56,15 +67,16 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.login),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+        headers: await _headers(contentType: true),
         body: jsonEncode({
-          'email': email,
+          'email': email.trim(),
           'password': password,
         }),
       );
+
+      // ----------------------------------------------------------
+      // LOGIN REFUSÉ
+      // ----------------------------------------------------------
 
       if (response.statusCode != 200) {
         return false;
@@ -74,38 +86,65 @@ class AuthService {
         return false;
       }
 
-      final body = jsonDecode(response.body);
+      // ----------------------------------------------------------
+      // JSON
+      // ----------------------------------------------------------
 
-      if (body is! Map) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is! Map) {
         return false;
       }
 
-      final data = body['data'];
+      final body = Map<String, dynamic>.from(decoded);
 
-      if (data is! Map) {
+      // ----------------------------------------------------------
+      // DATA
+      // ----------------------------------------------------------
+
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
         return false;
       }
 
-      final token = data['token'];
+      final data = Map<String, dynamic>.from(rawData);
 
-      if (token == null ||
-          token.toString().isEmpty) {
+      // ----------------------------------------------------------
+      // TOKEN
+      // ----------------------------------------------------------
+
+      final rawToken = data['token'];
+
+      if (rawToken == null) {
         return false;
       }
+
+      final token = rawToken.toString().trim();
+
+      if (token.isEmpty) {
+        return false;
+      }
+
+      // ----------------------------------------------------------
+      // SAUVEGARDE
+      // ----------------------------------------------------------
 
       await saveLoginData(
-        Map<String, dynamic>.from(data),
-        token.toString(),
+        data,
+        token,
       );
 
       return true;
-    } catch (_) {
+    } catch (e) {
       return false;
     }
   }
 
   // ============================================================
   // CURRENT USER
+  //
+  // GET /api/v1/auth/dashboard
   // ============================================================
 
   static Future<Map<String, dynamic>?> getCurrentUser() async {
@@ -117,9 +156,18 @@ class AuthService {
 
     try {
       final response = await http.get(
-        Uri.parse(ApiConfig.me),
+        Uri.parse(ApiConfig.dashboard),
         headers: await _headers(),
       );
+
+      // ----------------------------------------------------------
+      // TOKEN INVALIDE / NON AUTORISÉ
+      // ----------------------------------------------------------
+
+      if (response.statusCode == 401) {
+        await clearSession();
+        return null;
+      }
 
       if (response.statusCode != 200) {
         return null;
@@ -129,28 +177,67 @@ class AuthService {
         return null;
       }
 
-      final body = jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
 
-      if (body is! Map) {
+      if (decoded is! Map) {
         return null;
       }
 
-      final data = body['data'] ?? body;
+      final body = Map<String, dynamic>.from(decoded);
 
-      if (data is! Map) {
-        return null;
+      // ----------------------------------------------------------
+      // DATA
+      // ----------------------------------------------------------
+
+      dynamic data = body['data'];
+
+      if (data is Map) {
+        data = Map<String, dynamic>.from(data);
+      } else {
+        data = body;
       }
 
-      final user = data['user'] ?? data;
+      // ----------------------------------------------------------
+      // USER
+      // ----------------------------------------------------------
 
-      if (user is! Map) {
-        return null;
+      dynamic user = data['user'];
+
+      if (user is Map) {
+        return Map<String, dynamic>.from(user);
       }
 
-      return Map<String, dynamic>.from(user);
-    } catch (_) {
+      // Certains endpoints peuvent directement retourner
+      // l'utilisateur dans "data".
+
+      return Map<String, dynamic>.from(data);
+
+    } catch (e) {
       return null;
     }
+  }
+
+  // ============================================================
+  // REFRESH CURRENT USER
+  //
+  // Utilise /auth/me et met à jour le cache local.
+  // ============================================================
+
+  static Future<Map<String, dynamic>?> refreshCurrentUser() async {
+    final user = await getCurrentUser();
+
+    if (user == null) {
+      return null;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      _userKey,
+      jsonEncode(user),
+    );
+
+    return user;
   }
 
   // ============================================================
@@ -163,28 +250,84 @@ class AuthService {
   ) async {
     final prefs = await SharedPreferences.getInstance();
 
+    // ----------------------------------------------------------
+    // TOKEN
+    // ----------------------------------------------------------
+
     await prefs.setString(
       _tokenKey,
       token,
     );
 
-    final user = data['user'];
+    // ----------------------------------------------------------
+    // USER
+    // ----------------------------------------------------------
 
-    if (user is Map) {
+    final rawUser = data['user'];
+
+    if (rawUser is Map) {
       await prefs.setString(
         _userKey,
-        jsonEncode(user),
+        jsonEncode(
+          Map<String, dynamic>.from(rawUser),
+        ),
       );
     }
 
-    final roles = data['roles'];
+    // ----------------------------------------------------------
+    // ROLES
+    // ----------------------------------------------------------
 
-    if (roles is List) {
-      await prefs.setString(
-        _rolesKey,
-        jsonEncode(roles),
-      );
+    final roles = _extractRoleNames(data['roles']);
+
+    await prefs.setString(
+      _rolesKey,
+      jsonEncode(roles),
+    );
+  }
+
+
+
+  static List<String> _extractRoleNames(
+    dynamic rawRoles,
+  ) {
+    if (rawRoles is! List) {
+      return [];
     }
+
+    final roles = <String>[];
+
+    for (final role in rawRoles) {
+      
+      if (role is String) {
+        final value = role.trim();
+
+        if (value.isNotEmpty) {
+          roles.add(value);
+        }
+
+        continue;
+      }
+ 
+      if (role is Map) {
+        final map = Map<String, dynamic>.from(role);
+
+        final dynamic name =
+            map['name'] ??
+            map['role'] ??
+            map['slug'];
+
+        if (name is String) {
+          final value = name.trim();
+
+          if (value.isNotEmpty) {
+            roles.add(value);
+          }
+        }
+      }
+    }
+
+    return roles.toSet().toList();
   }
 
   // ============================================================
@@ -196,20 +339,19 @@ class AuthService {
 
     final userJson = prefs.getString(_userKey);
 
-    if (userJson == null ||
-        userJson.isEmpty) {
+    if (userJson == null || userJson.isEmpty) {
       return null;
     }
 
     try {
-      final data = jsonDecode(userJson);
+      final decoded = jsonDecode(userJson);
 
-      if (data is Map) {
-        return Map<String, dynamic>.from(data);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
       }
 
       return null;
-    } catch (_) {
+    } catch (e) {
       return null;
     }
   }
@@ -223,22 +365,23 @@ class AuthService {
 
     final rolesJson = prefs.getString(_rolesKey);
 
-    if (rolesJson == null ||
-        rolesJson.isEmpty) {
+    if (rolesJson == null || rolesJson.isEmpty) {
       return [];
     }
 
     try {
-      final data = jsonDecode(rolesJson);
+      final decoded = jsonDecode(rolesJson);
 
-      if (data is! List) {
+      if (decoded is! List) {
         return [];
       }
 
-      return data
-          .map((role) => role.toString())
+      return decoded
+          .whereType<String>()
+          .map((role) => role.trim())
+          .where((role) => role.isNotEmpty)
           .toList();
-    } catch (_) {
+    } catch (e) {
       return [];
     }
   }
@@ -256,32 +399,96 @@ class AuthService {
   }
 
   // ============================================================
-  // ADMIN
+  // CHECK MULTIPLE ROLES
+  // ============================================================
+
+  static Future<bool> hasAnyRole(
+    List<String> requiredRoles,
+  ) async {
+    final roles = await getSavedRoles();
+
+    return requiredRoles.any(
+      roles.contains,
+    );
+  }
+
+  // ============================================================
+  // SUPER ADMIN
   // ============================================================
 
   static Future<bool> isSuperAdmin() async {
     return hasRole('super_admin');
   }
 
+  // ============================================================
+  // ADMIN RH
+  // ============================================================
+
   static Future<bool> isAdminRh() async {
     return hasRole('admin_rh');
   }
 
   // ============================================================
+  // MANAGER
+  // ============================================================
+
+  static Future<bool> isManager() async {
+    return hasRole('manager');
+  }
+
+  // ============================================================
+  // EMPLOYEE
+  // ============================================================
+
+  static Future<bool> isEmployee() async {
+    return hasRole('employee');
+  }
+
+  // ============================================================
+  // KIOSK
+  // ============================================================
+
+  static Future<bool> isKiosk() async {
+    return hasRole('kiosk');
+  }
+
+  // ============================================================
+  // ADMINISTRATEUR
+  // ============================================================
+
+  static Future<bool> isAdmin() async {
+    return hasAnyRole([
+      'super_admin',
+      'admin_rh',
+    ]);
+  }
+
+  // ============================================================
   // LOGOUT
+  //
+  // POST /api/v1/auth/logout
   // ============================================================
 
   static Future<void> logout() async {
     final token = await getToken();
 
-    if (token != null &&
-        token.isNotEmpty) {
+    if (token != null && token.isNotEmpty) {
       try {
-        await http.post(
+        final response = await http.post(
           Uri.parse(ApiConfig.logout),
           headers: await _headers(),
         );
-      } catch (_) {}
+
+        // Dans tous les cas, on nettoie la session locale.
+        if (response.statusCode == 401 ||
+            response.statusCode == 200 ||
+            response.statusCode == 204) {
+          // Rien à faire ici.
+        }
+      } catch (_) {
+        // Même si le serveur est inaccessible,
+        // on supprime la session locale.
+      }
     }
 
     await clearSession();

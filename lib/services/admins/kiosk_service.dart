@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:attendance/core/auth/auth_service.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
-import 'package:attendance/models/model_kiosk.dart';
+import 'package:attendance/models/admins/kiosk_model..dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class KioskService {
@@ -82,38 +83,73 @@ class KioskService {
   // CREATE
   // ============================================================
 
-  static Future<KioskModel> createKiosk({
-    required String name,
-    required String code,
-    String? location,
-    required String mode,
-    String? ipAddress,
-    required bool active,
-  }) async {
+  // ============================================================
+// CREATE
+// ============================================================
+
+static Future<KioskModel> createKiosk({
+  required String name,
+  String? location,
+  required String method,
+  String? ipAddress,
+  required bool active,
+}) async {
+  try {
     final response = await http.post(
       Uri.parse(ApiConfig.kiosks),
       headers: await _headers(json: true),
       body: jsonEncode({
         'name': name,
-        'code': code,
         'location': location,
-        'mode': mode,
+        'method': method,
         'ip_address': ipAddress,
         'active': active,
       }),
     );
 
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(_extractError(response));
+    debugPrint(
+      'CREATE KIOSK STATUS: ${response.statusCode}',
+    );
+
+    debugPrint(
+      'CREATE KIOSK BODY: ${response.body}',
+    );
+
+    // ----------------------------------------------------------
+    // SUCCESS
+    // ----------------------------------------------------------
+
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300) {
+      
+      final body = jsonDecode(response.body);
+
+      final data = body['data'] ?? body;
+
+      if (data is! Map) {
+        throw Exception(
+          'Format de réponse du kiosk invalide',
+        );
+      }
+
+      return KioskModel.fromJson(
+        Map<String, dynamic>.from(data),
+      );
     }
 
-    final body = jsonDecode(response.body);
+    // ----------------------------------------------------------
+    // ERROR
+    // ----------------------------------------------------------
 
-    final data = body['data'] ?? body;
+    throw Exception(_extractError(response));
+  } catch (e) {
+    debugPrint(
+      'Erreur KioskService.createKiosk(): $e',
+    );
 
-    return KioskModel.fromJson(Map<String, dynamic>.from(data));
+    rethrow;
   }
-
+}
   // ============================================================
   // UPDATE
   // ============================================================
@@ -121,9 +157,9 @@ class KioskService {
   static Future<KioskModel> updateKiosk({
     required int id,
     required String name,
-    required String code,
+    // required String code,
     String? location,
-    required String mode,
+    required String method,
     String? ipAddress,
     required bool active,
   }) async {
@@ -132,9 +168,9 @@ class KioskService {
       headers: await _headers(json: true),
       body: jsonEncode({
         'name': name,
-        'code': code,
+        // 'code': code,
         'location': location,
-        'mode': mode,
+        'method': method,
         'ip_address': ipAddress,
         'active': active,
       }),

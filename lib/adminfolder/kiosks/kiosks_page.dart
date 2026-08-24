@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:attendance/controllers/kiosk_controller.dart';
-import 'package:attendance/models/model_kiosk.dart';
+import 'package:attendance/controllers/admins/kiosk_controller.dart';
+import 'package:attendance/models/admins/kiosk_model..dart';
 
 class KioskPage extends StatefulWidget {
   const KioskPage({super.key});
@@ -117,12 +117,12 @@ class _KioskPageState extends State<KioskPage> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Code : ${kiosk.code}'),
+            // Text('Code : ${kiosk.code}'),
 
             if (kiosk.location != null)
               Text('Lieu : ${kiosk.location}'),
 
-            Text('Mode : ${kiosk.mode}'),
+            Text('Mode : ${kiosk.method}'),
 
             if (kiosk.ipAddress != null)
               Text('IP : ${kiosk.ipAddress}'),
@@ -295,7 +295,7 @@ class _KioskPageState extends State<KioskPage> {
     final locationController = TextEditingController();
     final ipController = TextEditingController();
 
-    String mode = 'qr_pin';
+    String method = 'KIOSK_QR';
     bool active = true;
 
     showDialog(
@@ -347,7 +347,7 @@ class _KioskPageState extends State<KioskPage> {
                       const SizedBox(height: 15),
 
                       DropdownButtonFormField<String>(
-                        initialValue: mode,
+                        initialValue: method,
 
                         decoration:
                             const InputDecoration(
@@ -357,7 +357,7 @@ class _KioskPageState extends State<KioskPage> {
 
                         items: const [
                           DropdownMenuItem(
-                            value: 'qr_pin',
+                            value: 'KIOSK_QR',
                             child: Text(
                               'QR Code + PIN',
                             ),
@@ -371,7 +371,7 @@ class _KioskPageState extends State<KioskPage> {
                           ),
 
                           DropdownMenuItem(
-                            value: 'pin',
+                            value: 'KIOSK_PIN',
                             child: Text(
                               'PIN uniquement',
                             ),
@@ -380,7 +380,7 @@ class _KioskPageState extends State<KioskPage> {
 
                         onChanged: (value) {
                           setDialogState(() {
-                            mode = value ?? 'qr_pin';
+                            method = value ?? 'KIOSK_QR';
                           });
                         },
                       ),
@@ -444,14 +444,12 @@ class _KioskPageState extends State<KioskPage> {
                       name:
                           nameController.text.trim(),
 
-                      code:
-                          codeController.text.trim(),
 
                       location:
                           locationController.text
                               .trim(),
 
-                      mode: mode,
+                      method: method,
 
                       ipAddress:
                           ipController.text

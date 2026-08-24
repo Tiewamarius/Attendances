@@ -2,12 +2,15 @@ import 'dart:convert';
 
 import 'package:attendance/core/auth/auth_service.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
-import 'package:attendance/models/model_department.dart';
-import 'package:attendance/models/users/user_model.dart';
+import 'package:attendance/models/admins/dashboard_model.dart';
+import 'package:attendance/models/admins/department_model.dart';
+import 'package:attendance/models/admins/model_roles.dart';
+import 'package:attendance/models/user_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-class AdminService {
-  AdminService._();
+class UserService {
+  UserService._();
 
   // ============================================================
   // HEADERS
@@ -49,7 +52,7 @@ class AdminService {
   static Future<UserModel?> getProfile() async {
     try {
       final response = await http.get(
-        Uri.parse(ApiConfig.me),
+        Uri.parse(ApiConfig.dashboard),
         headers: await _headers(),
       );
 
@@ -85,6 +88,103 @@ class AdminService {
       return null;
     }
   }
+
+Future<AdminDashboardModel> getDashboard() async {
+    try {
+      final token = await AuthService.getToken();
+
+      if (token == null || token.isEmpty) {
+        throw Exception('Session expirée.');
+      }
+
+      final response = await http.get(
+        Uri.parse(ApiConfig.dashboard),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint(
+        'Dashboard status: ${response.statusCode}',
+      );
+
+      debugPrint(
+        'Dashboard response: ${response.body}',
+      );
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          body['message'] ??
+              'Impossible de récupérer le dashboard.',
+        );
+      }
+
+      if (body['success'] != true) {
+        throw Exception(
+          body['message'] ??
+              'Erreur lors du chargement du dashboard.',
+        );
+      }
+
+      return AdminDashboardModel.fromJson(
+        body['data'] ?? {},
+      );
+    } catch (e) {
+      debugPrint( 'Erreur getDashboard(): $e',
+      );
+
+      rethrow;
+    }
+  }
+  // ============================================================
+// ROLES - SPATIE
+// GET /users/roles
+// ============================================================
+
+static Future<List<RoleModel>> getRoles() async {
+  try {
+    final response = await http.get(
+      Uri.parse(ApiConfig.roles),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode != 200) {
+      return [];
+    }
+
+    final body = _decodeResponse(response);
+
+    if (body == null) {
+      return [];
+    }
+
+    dynamic data;
+
+    if (body is Map) {
+      data = body['data'] ?? body;
+    } else {
+      data = body;
+    }
+
+    if (data is! List) {
+      return [];
+    }
+
+    return data
+        .whereType<Map>()
+        .map(
+          (item) => RoleModel.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  } catch (e) {
+    return [];
+  }
+}
 
   // ============================================================
   // DEPARTEMENTS
@@ -187,7 +287,7 @@ class AdminService {
         headers: await _headers(json: true),
         body: jsonEncode({
           'name': name,
-          'description': ?description,
+          'description': description,
         }),
       );
 
@@ -390,7 +490,7 @@ class AdminService {
           'name': name,
           'email': email,
           'password': password,
-          'role': ?role,
+          'role': role,
         }),
       );
 
@@ -418,7 +518,7 @@ class AdminService {
         body: jsonEncode({
           'name': name,
           'email': email,
-          'role': ?role,
+          'role': role,
         }),
       );
 

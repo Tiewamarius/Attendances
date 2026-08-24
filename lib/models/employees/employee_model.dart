@@ -1,78 +1,101 @@
-class Employee {
+class EmployeeModel {
   final int id;
-  final int userId;
-  final String employeeCode;
   final String firstName;
   final String lastName;
-  final String fullName;
-  final String? phone;
-  final String? profileImage;
-  final String? position;
-  final String? hireDate;
-  final bool active;
   final String email;
-  final Department? department;
-  final Manager? manager;
+  final String? phone;
+  final String? position;
+  final String? profileImage;
 
-  Employee({
+  const EmployeeModel({
     required this.id,
-    required this.userId,
-    required this.employeeCode,
     required this.firstName,
     required this.lastName,
-    required this.fullName,
-    this.phone,
-    this.profileImage,
-    this.position,
-    this.hireDate,
-    required this.active,
     required this.email,
-    this.department,
-    this.manager,
+    this.phone,
+    this.position,
+    this.profileImage,
   });
 
-  factory Employee.fromJson(Map<String, dynamic> json) {
-    return Employee(
-      id: json['id'],
-      userId: json['user_id'],
-      employeeCode: json['employee_code'] ?? '',
-      firstName: json['first_name'] ?? '',
-      lastName: json['last_name'] ?? '',
-      fullName: json['full_name'] ?? '',
-      phone: json['phone'],
-      profileImage: json['profile_image'],
-      position: json['position'],
-      hireDate: json['hire_date'],
-      active: json['active'] ?? false,
-      email: json['email'] ?? '',
-      department: json['department'] != null
-          ? Department.fromJson(json['department'])
-          : null,
-      manager: json['manager'] != null
-          ? Manager.fromJson(json['manager'])
-          : null,
+  factory EmployeeModel.fromJson(Map<String, dynamic> json) {
+    return EmployeeModel(
+      id: _parseInt(json['id']),
+      firstName: _parseString(
+        json['first_name'] ??
+            json['firstName'] ??
+            json['firstname'],
+      ),
+      lastName: _parseString(
+        json['last_name'] ??
+            json['lastName'] ??
+            json['lastname'],
+      ),
+      email: _parseString(json['email']),
+      phone: _parseNullableString(
+        json['phone'] ??
+            json['telephone'] ??
+            json['phone_number'],
+      ),
+      position: _parseNullableString(
+        json['position'] ??
+            json['job_title'] ??
+            json['poste'],
+      ),
+      profileImage: _parseNullableString(
+        json['profile_image'] ??
+            json['profileImage'] ??
+            json['avatar'] ??
+            json['photo'],
+      ),
     );
   }
-}
 
-class Department {
-  final int id;
-  final String name;
-
-  Department({required this.id, required this.name});
-
-  factory Department.fromJson(Map<String, dynamic> json) {
-    return Department(id: json['id'], name: json['name'] ?? '');
+  String get fullName {
+    return '$firstName $lastName'.trim();
   }
-}
 
-class Manager {
-  final int id;
-  final String name;
+  String get initials {
+    final first = firstName.trim();
+    final last = lastName.trim();
 
-  Manager({required this.id, required this.name});
+    if (first.isEmpty && last.isEmpty) {
+      return '?';
+    }
 
-  factory Manager.fromJson(Map<String, dynamic> json) {
-    return Manager(id: json['id'], name: json['name'] ?? '');
+    if (first.isNotEmpty && last.isNotEmpty) {
+      return '${first[0]}${last[0]}'.toUpperCase();
+    }
+
+    if (first.isNotEmpty) {
+      return first[0].toUpperCase();
+    }
+
+    return last[0].toUpperCase();
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static String _parseString(dynamic value) {
+    return value?.toString().trim() ?? '';
+  }
+
+  static String? _parseNullableString(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    final result = value.toString().trim();
+
+    if (result.isEmpty || result == 'null') {
+      return null;
+    }
+
+    return result;
   }
 }

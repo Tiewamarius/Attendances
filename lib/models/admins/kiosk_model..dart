@@ -3,7 +3,7 @@ class KioskModel {
   final String name;
   final String code;
   final String? location;
-  final String mode;
+  final String method;
   final String? apiKey;
   final String? ipAddress;
   final bool active;
@@ -14,18 +14,23 @@ class KioskModel {
     required this.name,
     required this.code,
     this.location,
-    required this.mode,
+    required this.method,
     this.apiKey,
     this.ipAddress,
     required this.active,
     this.lastConnection,
   });
 
-  factory KioskModel.fromJson(Map<String, dynamic> json) {
+  factory KioskModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return KioskModel(
       id: json['id'] is int
           ? json['id']
-          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+          : int.tryParse(
+                json['id']?.toString() ?? '0',
+              ) ??
+              0,
 
       name: json['name']?.toString() ?? '',
 
@@ -33,7 +38,7 @@ class KioskModel {
 
       location: json['location']?.toString(),
 
-      mode: json['mode']?.toString() ?? 'qr_pin',
+      method: json['method']?.toString() ?? 'KIOSK_QR',
 
       apiKey: json['api_key']?.toString(),
 
@@ -44,9 +49,12 @@ class KioskModel {
           json['active'] == 1 ||
           json['active']?.toString() == '1',
 
-      lastConnection: json['last_connection'] != null
-          ? DateTime.tryParse(json['last_connection'].toString())
-          : null,
+      lastConnection:
+          json['last_connection'] != null
+              ? DateTime.tryParse(
+                  json['last_connection'].toString(),
+                )
+              : null,
     );
   }
 
@@ -56,11 +64,12 @@ class KioskModel {
       'name': name,
       'code': code,
       'location': location,
-      'mode': mode,
+      'method': method,
       'api_key': apiKey,
       'ip_address': ipAddress,
       'active': active,
-      'last_connection': lastConnection?.toIso8601String(),
+      'last_connection':
+          lastConnection?.toIso8601String(),
     };
   }
 }

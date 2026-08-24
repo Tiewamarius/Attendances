@@ -1,7 +1,6 @@
+import 'package:attendance/models/admins/kiosk_model..dart';
 import 'package:flutter/foundation.dart';
-
-import 'package:attendance/models/model_kiosk.dart';
-import 'package:attendance/services/kiosk_service.dart';
+import 'package:attendance/services/admins/kiosk_service.dart';
 
 class KioskController extends ChangeNotifier {
   // ============================================================
@@ -17,15 +16,12 @@ class KioskController extends ChangeNotifier {
   // ============================================================
 
   bool _loading = false;
-
   bool get loading => _loading;
 
   bool _saving = false;
-
   bool get saving => _saving;
 
   String? _error;
-
   String? get error => _error;
 
   // ============================================================
@@ -35,16 +31,18 @@ class KioskController extends ChangeNotifier {
   Future<void> loadKiosks() async {
     _loading = true;
     _error = null;
-
     notifyListeners();
 
     try {
       _kiosks = await KioskService.getKiosks();
     } catch (e) {
-      _error = e.toString();
+      _error = _cleanError(e);
+
+      debugPrint(
+        'KioskController.loadKiosks: $e',
+      );
     } finally {
       _loading = false;
-
       notifyListeners();
     }
   }
@@ -55,40 +53,39 @@ class KioskController extends ChangeNotifier {
 
   Future<bool> createKiosk({
     required String name,
-    required String code,
     String? location,
-    required String mode,
+    required String method,
     String? ipAddress,
     required bool active,
   }) async {
     _saving = true;
     _error = null;
-
     notifyListeners();
 
     try {
       final kiosk = await KioskService.createKiosk(
         name: name,
-        code: code,
         location: location,
-        mode: mode,
+        method: method,
         ipAddress: ipAddress,
         active: active,
       );
 
       _kiosks = [
-        ..._kiosks,
-        kiosk,
+        ..._kiosks, kiosk,
       ];
 
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = _cleanError(e);
+
+      debugPrint(
+        'KioskController.createKiosk: $e',
+      );
 
       return false;
     } finally {
       _saving = false;
-
       notifyListeners();
     }
   }
@@ -100,24 +97,21 @@ class KioskController extends ChangeNotifier {
   Future<bool> updateKiosk({
     required int id,
     required String name,
-    required String code,
     String? location,
-    required String mode,
+    required String method,
     String? ipAddress,
     required bool active,
   }) async {
     _saving = true;
     _error = null;
-
     notifyListeners();
 
     try {
       final updated = await KioskService.updateKiosk(
         id: id,
         name: name,
-        code: code,
         location: location,
-        mode: mode,
+        method: method,
         ipAddress: ipAddress,
         active: active,
       );
@@ -128,20 +122,21 @@ class KioskController extends ChangeNotifier {
 
       if (index != -1) {
         final list = [..._kiosks];
-
         list[index] = updated;
-
         _kiosks = list;
       }
 
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = _cleanError(e);
+
+      debugPrint(
+        'KioskController.updateKiosk: $e',
+      );
 
       return false;
     } finally {
       _saving = false;
-
       notifyListeners();
     }
   }
@@ -152,7 +147,6 @@ class KioskController extends ChangeNotifier {
 
   Future<bool> toggleKiosk(int id) async {
     _error = null;
-
     notifyListeners();
 
     try {
@@ -164,21 +158,21 @@ class KioskController extends ChangeNotifier {
 
       if (index != -1) {
         final list = [..._kiosks];
-
         list[index] = updated;
-
         _kiosks = list;
       }
 
-      notifyListeners();
-
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = _cleanError(e);
 
-      notifyListeners();
+      debugPrint(
+        'KioskController.toggleKiosk: $e',
+      );
 
       return false;
+    } finally {
+      notifyListeners();
     }
   }
 
@@ -188,7 +182,6 @@ class KioskController extends ChangeNotifier {
 
   Future<bool> deleteKiosk(int id) async {
     _error = null;
-
     notifyListeners();
 
     try {
@@ -198,15 +191,17 @@ class KioskController extends ChangeNotifier {
           .where((kiosk) => kiosk.id != id)
           .toList();
 
-      notifyListeners();
-
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = _cleanError(e);
 
-      notifyListeners();
+      debugPrint(
+        'KioskController.deleteKiosk: $e',
+      );
 
       return false;
+    } finally {
+      notifyListeners();
     }
   }
 
@@ -216,7 +211,20 @@ class KioskController extends ChangeNotifier {
 
   void clearError() {
     _error = null;
-
     notifyListeners();
+  }
+
+  // ============================================================
+  // ERROR
+  // ============================================================
+
+  String _cleanError(Object error) {
+    final message = error.toString();
+
+    if (message.startsWith('Exception: ')) {
+      return message.substring('Exception: '.length);
+    }
+
+    return message;
   }
 }

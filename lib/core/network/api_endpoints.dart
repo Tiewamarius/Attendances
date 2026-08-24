@@ -7,20 +7,34 @@ class ApiConfig {
   // BASE URL
   // ============================================================
 
+  /// Production
   static const String productionUrl =
       'https://ekklesiaciel.com/api/v1';
 
+  /// Flutter Web en développement
   static const String webLocalUrl =
       'http://127.0.0.1:8000/api/v1';
 
+  /// Android Emulator en développement
   static const String androidEmulatorUrl =
       'http://10.0.2.2:8000/api/v1';
 
-  // Remplace cette adresse par l'adresse IP locale de ton PC.
+  /// Téléphone physique connecté au même réseau que le PC
+  ///
+  /// Remplace cette IP par l'adresse IP locale de ton PC.
   static const String physicalDeviceUrl =
-      'http://192.168.1.100:8000/api/v1';
+      'http://192.168.1.10:8000/api/v1';
 
-  // Retourne l'URL adaptée à l'environnement.
+  /// URL utilisée par l'application.
+  ///
+  /// Release :
+  ///     https://ekklesiaciel.com/api/v1
+  ///
+  /// Web Debug :
+  ///     http://127.0.0.1:8000/api/v1
+  ///
+  /// Android / iOS Debug :
+  ///     IP locale du PC
   static String get baseUrl {
     if (kReleaseMode) {
       return productionUrl;
@@ -31,15 +45,18 @@ class ApiConfig {
     }
 
     return physicalDeviceUrl;
+    //  return productionUrl ;
   }
 
   // ============================================================
   // SETUP / INSTALLATION INITIALE
   // ============================================================
 
+  /// POST /setup/roles
   static String get setupRoles =>
       '$baseUrl/setup/roles';
 
+  /// POST /setup/admin
   static String get setupAdmin =>
       '$baseUrl/setup/admin';
 
@@ -47,98 +64,94 @@ class ApiConfig {
   // AUTHENTIFICATION
   // ============================================================
 
+  /// POST /auth/login
   static String get login =>
       '$baseUrl/auth/login';
 
+  /// POST /auth/logout
   static String get logout =>
       '$baseUrl/auth/logout';
 
-  static String get me =>
-      '$baseUrl/auth/me';
-
-  // ============================================================
-  // DASHBOARD
-  // ============================================================
-
+  /// GET /auth/DASHBOARD
   static String get dashboard =>
-      '$baseUrl/dashboard';
+      '$baseUrl/auth/dashboard';
+
+ 
 
   // ============================================================
   // UTILISATEURS
   // ============================================================
 
+  /// GET /users
+  /// POST /users
   static String get users =>
       '$baseUrl/users';
 
+  /// GET /users/{user}
+  /// PUT /users/{user}
+  /// DELETE /users/{user}
   static String user(int id) =>
       '$baseUrl/users/$id';
 
+
+  static String get roles =>
+      '$baseUrl/users/roles';
+
   // ============================================================
-  // DEPARTEMENTS
+  // DÉPARTEMENTS
   // ============================================================
 
+  /// GET /departments
+  /// POST /departments
   static String get departments =>
       '$baseUrl/departments';
 
-  // Détail d'un département.
-
+  /// GET /departments/{department}
+  /// PUT /departments/{department}
+  /// DELETE /departments/{department}
   static String department(int id) =>
       '$baseUrl/departments/$id';
 
   // ============================================================
-  // ROLES
+  // EMPLOYÉS - ADMINISTRATION RH
   // ============================================================
 
-  // Tous les rôles.
-
-  static String get roles =>
-      '$baseUrl/roles';
-
-  // Détail d'un rôle.
-
-  static String role(int id) =>
-      '$baseUrl/roles/$id';
-
-  // Supprimer un rôle.
-
-  static String roleDelete(int id) =>
-      '$baseUrl/roles/$id';
-
-  // ============================================================
-  // EMPLOYES - ADMINISTRATION RH
-  // ============================================================
-
+  /// GET /employees
+  /// POST /employees
   static String get employees =>
       '$baseUrl/employees';
 
+  /// GET /employees/{employee}
+  /// PUT /employees/{employee}
+  /// DELETE /employees/{employee}
   static String employee(int id) =>
       '$baseUrl/employees/$id';
 
-  // Informations d'un employé.
-
+  /// GET /employees/{employee}/attendance
   static String employeeAttendance(int id) =>
       '$baseUrl/employees/$id/attendance';
 
+  /// GET /employees/{employee}/leaves
   static String employeeLeaves(int id) =>
       '$baseUrl/employees/$id/leaves';
 
+  /// GET /employees/{employee}/permissions
   static String employeePermissions(int id) =>
       '$baseUrl/employees/$id/permissions';
 
-  // Générer le PIN d'un employé.
-
+  /// POST /employees/{employee}/generate-pin
   static String generateEmployeePin(int id) =>
       '$baseUrl/employees/$id/generate-pin';
 
-  // Générer le QR d'un employé.
-
+  /// POST /employees/{employee}/generate-qr
   static String generateEmployeeQr(int id) =>
       '$baseUrl/employees/$id/generate-qr';
 
   // ============================================================
-  // PROFIL EMPLOYE CONNECTE
+  // PROFIL EMPLOYÉ CONNECTÉ
   // ============================================================
 
+  /// GET /employee/profile
   static String get employeeProfile =>
       '$baseUrl/employee/profile';
 
@@ -146,33 +159,27 @@ class ApiConfig {
   // POINTAGES
   // ============================================================
 
-  // Tous les pointages.
-
+  /// GET /attendance
   static String get attendance =>
       '$baseUrl/attendance';
 
-  // Détail d'un pointage.
-
+  /// GET /attendance/{attendance}
   static String attendanceDetails(int id) =>
       '$baseUrl/attendance/$id';
 
-  // Pointage du jour.
-
+  /// GET /attendance/today
   static String get attendanceToday =>
       '$baseUrl/attendance/today';
 
-  // Historique des pointages.
-
+  /// GET /attendance/history
   static String get attendanceHistory =>
       '$baseUrl/attendance/history';
 
-  // Check-in.
-
+  /// POST /attendance/check-in
   static String get checkIn =>
       '$baseUrl/attendance/check-in';
 
-  // Check-out.
-
+  /// POST /attendance/check-out
   static String get checkOut =>
       '$baseUrl/attendance/check-out';
 
@@ -180,21 +187,22 @@ class ApiConfig {
   // KIOSKS - ADMINISTRATION
   // ============================================================
 
+  /// GET /kiosks
+  /// POST /kiosks
   static String get kiosks =>
       '$baseUrl/kiosks';
 
-  // Détail d'un kiosk.
-
+  /// GET /kiosks/{kiosk}
+  /// PUT /kiosks/{kiosk}
+  /// DELETE /kiosks/{kiosk}
   static String kiosk(int id) =>
       '$baseUrl/kiosks/$id';
 
-  // Logs d'un kiosk.
-
+  /// GET /kiosks/{kiosk}/logs
   static String kioskLogs(int id) =>
       '$baseUrl/kiosks/$id/logs';
 
-  // Activer ou désactiver un kiosk.
-
+  /// PATCH /kiosks/{kiosk}/toggle
   static String kioskToggle(int id) =>
       '$baseUrl/kiosks/$id/toggle';
 
@@ -202,108 +210,104 @@ class ApiConfig {
   // KIOSK - AUTHENTIFICATION
   // ============================================================
 
+  /// POST /kiosk/login
   static String get kioskLogin =>
       '$baseUrl/kiosk/login';
 
   // ============================================================
-  // KIOSK - OPERATIONS
+  // KIOSK - OPÉRATIONS
   // ============================================================
 
-  // Heartbeat du kiosk.
-
+  /// POST /kiosk/heartbeat
   static String get kioskHeartbeat =>
       '$baseUrl/kiosk/heartbeat';
 
-  // Scan QR depuis le kiosk.
-
+  /// POST /kiosk/scan-qr
   static String get kioskQr =>
       '$baseUrl/kiosk/scan-qr';
 
-  // Vérification PIN depuis le kiosk.
-
+  /// POST /kiosk/check-pin
   static String get kioskPin =>
       '$baseUrl/kiosk/check-pin';
 
-  // Vérification caméra.
-
+  /// POST /kiosk/camera-check
   static String get kioskCameraCheck =>
       '$baseUrl/kiosk/camera-check';
 
   // ============================================================
-  // QR EMPLOYE
+  // QR EMPLOYÉ
   // ============================================================
 
-  // Générer un QR.
-
+  /// POST /qr/generate
   static String get qrGenerate =>
       '$baseUrl/qr/generate';
 
-  // Rafraîchir un QR.
-
+  /// POST /qr/refresh
   static String get qrRefresh =>
       '$baseUrl/qr/refresh';
 
-  // Désactiver un QR.
-
+  /// POST /qr/disable
   static String get qrDisable =>
       '$baseUrl/qr/disable';
 
   // ============================================================
-  // PIN EMPLOYE
+  // PIN EMPLOYÉ
   // ============================================================
 
-  // Modifier le PIN.
-
+  /// POST /pin/change
   static String get pinChange =>
       '$baseUrl/pin/change';
 
   // ============================================================
-  // CONGES
+  // CONGÉS
   // ============================================================
 
-  // Toutes les demandes de congé.
-
+  /// GET /leaves
+  /// POST /leaves
   static String get leaves =>
       '$baseUrl/leaves';
 
-  // Détail d'un congé.
-
+  /// GET /leaves/{leave}
   static String leave(int id) =>
       '$baseUrl/leaves/$id';
 
-  // Types de congés.
-
+  /// GET /leaves/types
   static String get leaveTypes =>
       '$baseUrl/leaves/types';
 
-  // Solde de congés.
-
+  /// GET /leaves/balance
   static String get leaveBalance =>
       '$baseUrl/leaves/balance';
 
-  // Mes congés.
-
+  /// GET /leaves/my
   static String get myLeaves =>
       '$baseUrl/leaves/my';
 
-  // Créer une demande de congé.
-
+  /// POST /leaves
   static String get createLeave =>
       '$baseUrl/leaves';
 
-  // Validation Manager.
+  // -----------------------------
+  // Validation Manager
+  // -----------------------------
 
+  /// PUT /leaves/{id}/manager-approve
   static String managerApproveLeave(int id) =>
       '$baseUrl/leaves/$id/manager-approve';
 
+  /// PUT /leaves/{id}/manager-reject
   static String managerRejectLeave(int id) =>
       '$baseUrl/leaves/$id/manager-reject';
 
-  // Validation RH.
+  // -----------------------------
+  // Validation RH
+  // -----------------------------
 
+  /// PUT /leaves/{id}/hr-approve
   static String hrApproveLeave(int id) =>
       '$baseUrl/leaves/$id/hr-approve';
 
+  /// PUT /leaves/{id}/hr-reject
   static String hrRejectLeave(int id) =>
       '$baseUrl/leaves/$id/hr-reject';
 
@@ -311,39 +315,44 @@ class ApiConfig {
   // PERMISSIONS
   // ============================================================
 
-  // Toutes les demandes de permission.
-
+  /// GET /permissions
+  /// POST /permissions
   static String get permissions =>
       '$baseUrl/permissions';
 
-  // Détail d'une permission.
-
+  /// GET /permissions/{permission}
   static String permission(int id) =>
       '$baseUrl/permissions/$id';
 
-  // Mes permissions.
-
+  /// GET /permissions/my
   static String get myPermissions =>
       '$baseUrl/permissions/my';
 
-  // Créer une demande de permission.
-
+  /// POST /permissions
   static String get createPermission =>
       '$baseUrl/permissions';
 
-  // Validation Manager.
+  // -----------------------------
+  // Validation Manager
+  // -----------------------------
 
+  /// PUT /permissions/{id}/manager-approve
   static String managerApprovePermission(int id) =>
       '$baseUrl/permissions/$id/manager-approve';
 
+  /// PUT /permissions/{id}/manager-reject
   static String managerRejectPermission(int id) =>
       '$baseUrl/permissions/$id/manager-reject';
 
-  // Validation RH.
+  // -----------------------------
+  // Validation RH
+  // -----------------------------
 
+  /// PUT /permissions/{id}/hr-approve
   static String hrApprovePermission(int id) =>
       '$baseUrl/permissions/$id/hr-approve';
 
+  /// PUT /permissions/{id}/hr-reject
   static String hrRejectPermission(int id) =>
       '$baseUrl/permissions/$id/hr-reject';
 
@@ -351,33 +360,27 @@ class ApiConfig {
   // RAPPORTS RH
   // ============================================================
 
-  // Dashboard des rapports.
-
+  /// GET /reports/dashboard
   static String get reportDashboard =>
       '$baseUrl/reports/dashboard';
 
-  // Rapport des pointages.
-
+  /// GET /reports/attendance
   static String get reportAttendance =>
       '$baseUrl/reports/attendance';
 
-  // Export des pointages.
-
+  /// GET /reports/attendance/export
   static String get reportAttendanceExport =>
       '$baseUrl/reports/attendance/export';
 
-  // Rapport des congés.
-
+  /// GET /reports/leaves
   static String get reportLeaves =>
       '$baseUrl/reports/leaves';
 
-  // Export des congés.
-
+  /// GET /reports/leaves/export
   static String get reportLeavesExport =>
       '$baseUrl/reports/leaves/export';
 
-  // Rapport des permissions.
-
+  /// GET /reports/permissions
   static String get reportPermissions =>
       '$baseUrl/reports/permissions';
 }
