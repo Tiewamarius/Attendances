@@ -327,7 +327,6 @@ class _SetupAdminPageState extends State<SetupAdminPage> {
                       ),
               ),
             ),
-
             const SizedBox(height: 15),
 
             TextButton.icon(

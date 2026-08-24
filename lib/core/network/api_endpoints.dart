@@ -3,66 +3,62 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   ApiConfig._();
 
-  // ============================================================
-  // BASE URL
-  // ============================================================
+// BASE URL ============================================================
 
-  /// Production
-  static const String productionUrl =
-      'https://ekklesiaciel.com/api/v1';
+      /// Production
+      static const String productionUrl =
+          'https://ekklesiaciel.com/api/v1';
 
-  /// Flutter Web en développement
-  static const String webLocalUrl =
-      'http://127.0.0.1:8000/api/v1';
+      /// Flutter Web en développement
+      static const String webLocalUrl =
+          'http://127.0.0.1:8000/api/v1';
 
-  /// Android Emulator en développement
-  static const String androidEmulatorUrl =
-      'http://10.0.2.2:8000/api/v1';
+      /// Android Emulator en développement
+      static const String androidEmulatorUrl =
+          'http://10.0.2.2:8000/api/v1';
 
-  /// Téléphone physique connecté au même réseau que le PC
-  ///
-  /// Remplace cette IP par l'adresse IP locale de ton PC.
-  static const String physicalDeviceUrl =
-      'http://192.168.1.10:8000/api/v1';
+      /// Téléphone physique connecté au même réseau que le PC
+      ///
+      /// Remplace cette IP par l'adresse IP locale de ton PC.
+      static const String physicalDeviceUrl =
+          'http://192.168.1.26:8000/api/v1';
 
-  /// URL utilisée par l'application.
-  ///
-  /// Release :
-  ///     https://ekklesiaciel.com/api/v1
-  ///
-  /// Web Debug :
-  ///     http://127.0.0.1:8000/api/v1
-  ///
-  /// Android / iOS Debug :
-  ///     IP locale du PC
-  static String get baseUrl {
-    if (kReleaseMode) {
-      return productionUrl;
-    }
 
-    if (kIsWeb) {
-      return webLocalUrl;
-    }
+      /// Android / iOS Debug :
+      ///     IP locale du PC
+      static String get baseUrl {
+        if (kReleaseMode) {
+          return productionUrl;
+        }
 
-    return physicalDeviceUrl;
-    //  return productionUrl ;
-  }
+        if (kIsWeb) {
+          return webLocalUrl;
+        }
 
-  // ============================================================
-  // SETUP / INSTALLATION INITIALE
-  // ============================================================
+        return physicalDeviceUrl;
+        //  return productionUrl ;
+      }
+// END_BASE URL ============================================================
 
-  /// POST /setup/roles
-  static String get setupRoles =>
-      '$baseUrl/setup/roles';
+// ============================================================
+// SETUP / INSTALLATION INITIALE
+// ============================================================
 
-  /// POST /setup/admin
-  static String get setupAdmin =>
-      '$baseUrl/setup/admin';
+    // ETAT DE L'INSTALLATION============================================================
 
-  // ============================================================
-  // AUTHENTIFICATION
-  // ============================================================
+    static String get installationStatus =>
+    '$baseUrl/auth/setup/status';
+
+        /// POST /setup/admin
+        static String get setupAdmin =>
+            '$baseUrl/setup/admin';
+
+        /// POST /setup/roles
+        static String get setupRoles =>
+            '$baseUrl/setup/roles';
+// ============================================================
+// AUTHENTIFICATION
+// ============================================================
 
   /// POST /auth/login
   static String get login =>

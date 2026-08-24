@@ -14,6 +14,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  bool showKioskButton = false;
+  bool checkingInstallation = true;
+  bool superAdminExists = false;
+
   final loginController = TextEditingController();
 
   final passwordController = TextEditingController();
@@ -21,6 +25,54 @@ class _LoginPageState extends State<LoginPage> {
   bool obscurePassword = true;
 
   bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    checkInstallationStatus();
+  }
+
+  Future<void> checkInstallationStatus() async {
+    try {
+      final url = ApiConfig.installationStatus;
+
+      debugPrint('INSTALLATION STATUS URL : $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: const {'Accept': 'application/json'},
+      );
+
+      debugPrint('INSTALLATION STATUS : ${response.statusCode}');
+
+      debugPrint(response.body);
+
+      if (response.statusCode != 200) {
+        throw Exception('Impossible de vérifier l’état de l’installation');
+      }
+
+      final data = jsonDecode(response.body);
+
+      final result = data['data'];
+
+      if (!mounted) return;
+
+      setState(() {
+        showKioskButton = result['show_kiosk_button'] == true;
+        checkingInstallation = false;
+      });
+    } catch (e) {
+      debugPrint('INSTALLATION STATUS ERROR : $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        showKioskButton = false;
+        checkingInstallation = false;
+      });
+    }
+  }
 
   Future<void> login() async {
     if (loginController.text.trim().isEmpty ||
@@ -107,7 +159,6 @@ class _LoginPageState extends State<LoginPage> {
             break;
 
           case 'employees':
-
             context.goNamed('employees');
 
             break;
@@ -149,6 +200,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
@@ -158,6 +210,27 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: const Color(0xFFF1F5F9),
 
       body: SafeArea(child: mobile ? _mobileLayout() : _desktopLayout()),
+
+      floatingActionButton: showKioskButton
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                context.goNamed('kiosk-login');
+              },
+
+              backgroundColor: const Color(0xFF0F172A),
+
+              foregroundColor: Colors.white,
+
+              icon: const Icon(Icons.point_of_sale),
+
+              label: const Text(
+                'Connexion Kiosk',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            )
+          : null,
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -307,7 +380,7 @@ class _LoginPageState extends State<LoginPage> {
 
               child: ElevatedButton(
                 onPressed: loading ? null : login,
-style: ElevatedButton.styleFrom(
+                style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0F172A),
 
                   foregroundColor: Colors.white,
@@ -322,6 +395,7 @@ style: ElevatedButton.styleFrom(
               ),
             ),
 
+            const SizedBox(height: 15),
             TextButton.icon(
               onPressed: () {
                 context.goNamed('setup-admin');

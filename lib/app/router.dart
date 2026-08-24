@@ -2,6 +2,7 @@ import 'package:attendance/console_page.dart';
 import 'package:attendance/auth/setup_admin_page.dart';
 import 'package:attendance/employesfolder/employee_console_page.dart';
 import 'package:attendance/employesfolder/features/kiosk/kiosk_page.dart';
+import 'package:attendance/kioskfolder/kiosk_activation_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,13 +81,7 @@ class AppRouter {
     },
 
     routes: [
-      GoRoute(
-        path: '/',
-
-        name: 'splash',
-
-        builder: (_, _) => const SplashPage(),
-      ),
+      GoRoute(path: '/', name: 'splash', builder: (_, _) => const SplashPage()),
 
       GoRoute(
         path: '/login',
@@ -96,6 +91,11 @@ class AppRouter {
         builder: (_, _) => const LoginPage(),
       ),
 
+      GoRoute(
+        name: 'kiosk-login',
+        path: '/kiosk/login',
+        builder: (context, state) => const KioskActivationPage(),
+      ),
       GoRoute(
         path: '/setup/admin',
 
