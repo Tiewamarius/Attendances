@@ -21,7 +21,7 @@ class ApiConfig {
       ///
       /// Remplace cette IP par l'adresse IP locale de ton PC.
       static const String physicalDeviceUrl =
-          'http://192.168.1.26:8000/api/v1';
+          'http://192.168.1.8:8000/api/v1';
 
 
       /// Android / iOS Debug :

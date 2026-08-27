@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class EmployeeQrScannerPage extends StatefulWidget {
-  const EmployeeQrScannerPage({
-    super.key,
-  });
+  const EmployeeQrScannerPage({super.key});
 
   @override
   State<EmployeeQrScannerPage> createState() =>
@@ -12,47 +10,120 @@ class EmployeeQrScannerPage extends StatefulWidget {
 }
 
 class _EmployeeQrScannerPageState
-    extends State<EmployeeQrScannerPage> {
-  final MobileScannerController _controller =
-      MobileScannerController();
+    extends State<EmployeeQrScannerPage>
+    with WidgetsBindingObserver {
+
+  late final MobileScannerController _controller;
 
   bool _isProcessing = false;
+  bool _cameraStarted = false;
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    _controller = MobileScannerController(
+      autoStart: true,
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        if (!_cameraStarted && !_isProcessing) {
+          _startCamera();
+        }
+        break;
+
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        _stopCamera();
+        break;
+    }
+  }
+
+  Future<void> _startCamera() async {
+    if (_cameraStarted || _isProcessing) return;
+
+    try {
+      await _controller.start();
+
+      if (mounted) {
+        setState(() {
+          _cameraStarted = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur démarrage caméra : $e');
+    }
+  }
+
+  Future<void> _stopCamera() async {
+    if (!_cameraStarted) return;
+
+    try {
+      await _controller.stop();
+    } catch (e) {
+      debugPrint('Erreur arrêt caméra : $e');
+    }
+
+    _cameraStarted = false;
+  }
+
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_isProcessing) return;
 
-    final List<Barcode> barcodes = capture.barcodes;
+    if (capture.barcodes.isEmpty) return;
 
-    if (barcodes.isEmpty) return;
+    final String? value = capture.barcodes.first.rawValue;
 
-    final String? value = barcodes.first.rawValue;
-
-    if (value == null || value.isEmpty) return;
+    if (value == null || value.trim().isEmpty) return;
 
     _isProcessing = true;
 
-    // Arrête la caméra
-    _controller.stop();
+    debugPrint('====================================');
+    debugPrint('QR CODE DETECTE');
+    debugPrint('VALUE: $value');
+    debugPrint('====================================');
 
-    // Retourne le code scanné à la page précédente
+    await _stopCamera();
+
+    if (!mounted) return;
+
     Navigator.pop(context, value);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
+    _controller.dispose();
+
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+
       body: Stack(
         children: [
+
           // =====================================================
           // CAMERA
           // =====================================================
+
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
@@ -61,30 +132,41 @@ class _EmployeeQrScannerPageState
           // =====================================================
           // OVERLAY
           // =====================================================
+
           SafeArea(
             child: Column(
               children: [
+
                 // HEADER
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 15,
                   ),
+
                   child: Row(
                     children: [
+
                       GestureDetector(
-                        onTap: () {
+                        onTap: () async {
+                          await _stopCamera();
+
+                          if (!mounted) return;
+
                           Navigator.pop(context);
                         },
+
                         child: Container(
                           width: 45,
                           height: 45,
+
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(
                               alpha: 0.45,
                             ),
                             shape: BoxShape.circle,
                           ),
+
                           child: const Icon(
                             Icons.close_rounded,
                             color: Colors.white,
@@ -113,10 +195,14 @@ class _EmployeeQrScannerPageState
 
                 const Spacer(),
 
-                // CADRE DE SCAN
+                // =================================================
+                // CADRE
+                // =================================================
+
                 Container(
                   width: 280,
                   height: 280,
+
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(
@@ -124,14 +210,16 @@ class _EmployeeQrScannerPageState
                       width: 3,
                     ),
                   ),
+
                   child: Stack(
                     children: [
-                      // Coins
+
                       Positioned(
                         top: -3,
                         left: -3,
                         child: _corner(),
                       ),
+
                       Positioned(
                         top: -3,
                         right: -3,
@@ -140,6 +228,7 @@ class _EmployeeQrScannerPageState
                           child: _corner(),
                         ),
                       ),
+
                       Positioned(
                         bottom: -3,
                         left: -3,
@@ -148,6 +237,7 @@ class _EmployeeQrScannerPageState
                           child: _corner(),
                         ),
                       ),
+
                       Positioned(
                         bottom: -3,
                         right: -3,
@@ -157,7 +247,6 @@ class _EmployeeQrScannerPageState
                         ),
                       ),
 
-                      // Ligne centrale
                       Center(
                         child: Container(
                           height: 2,
@@ -194,24 +283,26 @@ class _EmployeeQrScannerPageState
 
                 const Spacer(),
 
-                // BOUTON FLASH
+                // FLASH
                 Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 40,
-                  ),
+                  padding: const EdgeInsets.only(bottom: 40),
+
                   child: GestureDetector(
                     onTap: () {
                       _controller.toggleTorch();
                     },
+
                     child: Container(
                       width: 58,
                       height: 58,
+
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(
                           alpha: 0.18,
                         ),
                         shape: BoxShape.circle,
                       ),
+
                       child: const Icon(
                         Icons.flashlight_on_rounded,
                         color: Colors.white,
@@ -230,10 +321,12 @@ class _EmployeeQrScannerPageState
 
   Widget _corner() {
     return Container(
-      width: 35,
-      height: 35,
+      width: 30,
+      height: 30,
+
       decoration: const BoxDecoration(
         color: Color(0xFF20C4F4),
+
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
           bottomRight: Radius.circular(10),

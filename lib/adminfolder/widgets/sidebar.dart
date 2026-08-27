@@ -126,7 +126,7 @@ class _SideBarState extends State<SideBar> {
                   onTap: () async {
                     try {
                       await AuthService.logout();
-
+  
                       context.go('/login');
                     } catch (e) {
                       debugPrint('ERREUR LOGOUT : $e');

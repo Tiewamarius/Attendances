@@ -2,6 +2,7 @@ import 'package:attendance/console_page.dart';
 import 'package:attendance/auth/setup_admin_page.dart';
 import 'package:attendance/employesfolder/employee_console_page.dart';
 import 'package:attendance/employesfolder/features/kiosk/kiosk_page.dart';
+import 'package:attendance/kioskfolder/attendance_screen.dart';
 import 'package:attendance/kioskfolder/kiosk_activation_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -91,10 +92,33 @@ class AppRouter {
         builder: (_, _) => const LoginPage(),
       ),
 
+      // GoRoute(
+      //   name: 'forgot-password',
+      //   path: '/forgot-password',
+      //   builder: (context, state) => const ForgotPasswordPage(),
+      // ),
+
+      // GoRoute(
+      //   name: 'reset-password',
+      //   path: '/reset-password',
+      //   builder: (context, state) => const ResetPasswordPage(),
+      // ),
       GoRoute(
         name: 'kiosk-login',
         path: '/kiosk/login',
         builder: (context, state) => const KioskActivationPage(),
+      ),
+
+      // GoRoute(
+      //   name: 'kiosk-activation',
+      //   path: '/kiosk/activation',
+      //   builder: (context, state) => const KioskActivationPage(),
+      // ),
+
+      GoRoute(
+        name: 'kiosk',
+        path: '/kiosk',
+        builder: (context, state) => const AttendanceScreen(),
       ),
       GoRoute(
         path: '/setup/admin',
@@ -112,13 +136,13 @@ class AppRouter {
         builder: (_, _) => const ConsolePage(),
       ),
 
-      GoRoute(
-        path: '/kiosk',
+      // GoRoute(
+      //   path: '/kiosk',
 
-        name: 'kiosk',
+      //   name: 'kiosk',
 
-        builder: (_, _) => const KioskPage(),
-      ),
+      //   builder: (_, _) => const KioskPage(),
+      // ),
 
       GoRoute(
         path: '/employees',

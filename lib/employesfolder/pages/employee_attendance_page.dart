@@ -1,4 +1,4 @@
- import 'package:attendance/models/employees/employee_model.dart';
+import 'package:attendance/models/employees/employee_model.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -6,18 +6,13 @@ import 'package:qr_flutter/qr_flutter.dart';
 class EmployeeAttendancePage extends StatefulWidget {
   final EmployeeModel employee;
 
-  const EmployeeAttendancePage({
-    super.key,
-    required this.employee,
-  });
+  const EmployeeAttendancePage({super.key, required this.employee});
 
   @override
-  State<EmployeeAttendancePage> createState() =>
-      _EmployeeAttendancePageState();
+  State<EmployeeAttendancePage> createState() => _EmployeeAttendancePageState();
 }
 
-class _EmployeeAttendancePageState
-    extends State<EmployeeAttendancePage> {
+class _EmployeeAttendancePageState extends State<EmployeeAttendancePage> {
   // ============================================================
   // CONTROLLER CAMERA
   // ============================================================
@@ -36,7 +31,11 @@ class _EmployeeAttendancePageState
   void initState() {
     super.initState();
 
-    _scannerController = MobileScannerController();
+    _scannerController = MobileScannerController(
+      autoStart: false,
+      facing: CameraFacing.back,
+      detectionSpeed: DetectionSpeed.noDuplicates,
+    );
   }
 
   @override
@@ -61,22 +60,18 @@ class _EmployeeAttendancePageState
             // ====================================================
             // CONTENU PRINCIPAL
             // ====================================================
-
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
                 switchInCurve: Curves.easeOut,
                 switchOutCurve: Curves.easeIn,
-                child: _showCard
-                    ? _buildMyCard(employee)
-                    : _buildScanner(),
+                child: _showCard ? _buildMyCard(employee) : _buildScanner(),
               ),
             ),
 
             // ====================================================
             // SWITCHER
             // ====================================================
-
             _buildBottomSwitcher(),
 
             const SizedBox(height: 28),
@@ -91,139 +86,136 @@ class _EmployeeAttendancePageState
   // ============================================================
 
   Widget _buildMyCard(EmployeeModel employee) {
-    final employeeCode =
-        employee.id > 0 ? employee.id.toString() : 'EMPLOYEE';
+  final qrData = employee.qrToken;
 
-    return SingleChildScrollView(
-      key: const ValueKey('card'),
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        children: [
-          // ======================================================
-          // HEADER
-          // ======================================================
+  return SingleChildScrollView(
+    key: const ValueKey('card'),
+    physics: const BouncingScrollPhysics(),
+    child: Column(
+      children: [
+        _buildCardHeader(),
 
-          _buildCardHeader(),
+        const SizedBox(height: 15),
 
-          const SizedBox(height: 15),
+        Container(
+          width: 346,
+          height: 600,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFB112F5),
+                Color.fromARGB(255, 24, 217, 231),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color.fromARGB(51, 76, 233, 238),
+                blurRadius: 30,
+                offset: Offset(0, 15),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: CustomPaint(
+                    painter: _CardPatternPainter(),
+                  ),
+                ),
+              ),
 
-          // ======================================================
-          // CARTE
-          // ======================================================
+              Column(
+                children: [
+                  const SizedBox(height: 165),
 
-          Container(
-            width: 346,
-            height: 600,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF20C4F4),
-                  Color(0xFF18B8E8),
+                  // ==================================================
+                  // QR
+                  // ==================================================
+
+                  Container(
+                    width: 270,
+                    height: 270,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: qrData == null || qrData.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.qr_code_2_rounded,
+                                  size: 70,
+                                  color: Colors.grey,
+                                ),
+                                SizedBox(height: 12),
+                                Text(
+                                  'QR indisponible',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : QrImageView(
+                            data: qrData,
+                            version: QrVersions.auto,
+                            size: 230,
+                            backgroundColor: Colors.white,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: Colors.black,
+                            ),
+                            dataModuleStyle:
+                                const QrDataModuleStyle(
+                              dataModuleShape:
+                                  QrDataModuleShape.square,
+                              color: Colors.black,
+                            ),
+                          ),
+                  ),
+
+                  const Spacer(),
+
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 28,
+                      bottom: 25,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      // child: _buildCardLogo(),
+                    ),
+                  ),
                 ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF18B8E8).withValues(
-                    alpha: 0.20,
-                  ),
-                  blurRadius: 30,
-                  offset: const Offset(0, 15),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // =================================================
-                // MOTIF
-                // =================================================
-
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: CustomPaint(
-                      painter: _CardPatternPainter(),
-                    ),
-                  ),
-                ),
-
-                // =================================================
-                // CONTENU
-                // =================================================
-
-                Column(
-                  children: [
-                    const SizedBox(height: 165),
-
-                    // =================================================
-                    // QR CODE
-                    // =================================================
-
-                    Container(
-                      width: 270,
-                      height: 270,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: 0.08,
-                            ),
-                            blurRadius: 12,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: QrImageView(
-                        data: employeeCode,
-                        version: QrVersions.auto,
-                        size: 230,
-                        backgroundColor: Colors.white,
-                        eyeStyle: const QrEyeStyle(
-                          eyeShape: QrEyeShape.square,
-                          color: Colors.black,
-                        ),
-                        dataModuleStyle:
-                            const QrDataModuleStyle(
-                          dataModuleShape:
-                              QrDataModuleShape.square,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    // =================================================
-                    // LOGO
-                    // =================================================
-
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        left: 28,
-                        bottom: 25,
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _buildCardLogo(),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            ],
           ),
+        ),
 
-          const SizedBox(height: 18),
-        ],
-      ),
-    );
-  }
-
+        const SizedBox(height: 18),
+      ],
+    ),
+  );
+}
   // ============================================================
   // HEADER DE LA CARTE
   // ============================================================
@@ -354,35 +346,26 @@ class _EmployeeAttendancePageState
         // ========================================================
         // CAMERA
         // ========================================================
-
-        MobileScanner(
-          controller: _scannerController,
-          onDetect: _onDetect,
-        ),
+        MobileScanner(controller: _scannerController, onDetect: _onDetect),
 
         // ========================================================
         // ASSOMBRISSEMENT
         // ========================================================
-
         Positioned.fill(
           child: IgnorePointer(
-            child: CustomPaint(
-              painter: _ScannerOverlayPainter(),
-            ),
+            child: CustomPaint(painter: _ScannerOverlayPainter()),
           ),
         ),
 
         // ========================================================
         // INTERFACE DU SCANNER
         // ========================================================
-
         SafeArea(
           child: Column(
             children: [
               // ==================================================
               // HEADER CAMERA
               // ==================================================
-
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -403,11 +386,7 @@ class _EmployeeAttendancePageState
                     // Flash
                     ValueListenableBuilder<MobileScannerState>(
                       valueListenable: _scannerController,
-                      builder: (
-                        context,
-                        state,
-                        child,
-                      ) {
+                      builder: (context, state, child) {
                         final torchState = state.torchState;
 
                         return _buildScannerButton(
@@ -427,13 +406,11 @@ class _EmployeeAttendancePageState
               // ==================================================
               // ESPACE
               // ==================================================
-
               const Spacer(),
 
               // ==================================================
               // CADRE DE SCAN
               // ==================================================
-
               SizedBox(
                 width: 320,
                 height: 320,
@@ -441,9 +418,7 @@ class _EmployeeAttendancePageState
                   children: [
                     // Cadre
                     Positioned.fill(
-                      child: CustomPaint(
-                        painter: _ScannerFramePainter(),
-                      ),
+                      child: CustomPaint(painter: _ScannerFramePainter()),
                     ),
 
                     // Ligne de scan
@@ -462,7 +437,6 @@ class _EmployeeAttendancePageState
               // ==================================================
               // TITRE
               // ==================================================
-
               const Text(
                 'Scanner un Code QR',
                 textAlign: TextAlign.center,
@@ -479,7 +453,6 @@ class _EmployeeAttendancePageState
               // ==================================================
               // DESCRIPTION
               // ==================================================
-
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 45),
                 child: Text(
@@ -497,7 +470,6 @@ class _EmployeeAttendancePageState
               // ==================================================
               // ESPACE
               // ==================================================
-
               const Spacer(),
 
               const SizedBox(height: 20),
@@ -522,16 +494,10 @@ class _EmployeeAttendancePageState
         width: 45,
         height: 45,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(
-            alpha: 0.35,
-          ),
+          color: Colors.black.withValues(alpha: 0.35),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: 25,
-        ),
+        child: Icon(icon, color: Colors.white, size: 25),
       ),
     );
   }
@@ -540,54 +506,51 @@ class _EmployeeAttendancePageState
   // DÉTECTION QR
   // ============================================================
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_isProcessing) return;
-
     if (capture.barcodes.isEmpty) return;
 
     final barcode = capture.barcodes.first;
-
-    final String? value = barcode.rawValue;
+    final value = barcode.rawValue;
 
     if (value == null || value.isEmpty) return;
 
-    _isProcessing = true;
-
-    // Stop caméra
-    _scannerController.stop();
+    setState(() {
+      _isProcessing = true;
+    });
 
     debugPrint('================================');
     debugPrint('QR CODE SCANNÉ');
     debugPrint(value);
     debugPrint('================================');
 
-    // Ici on pourra appeler ton API Laravel.
-    _showScanResult(value);
+    try {
+      await _scannerController.stop();
+    } catch (e) {
+      debugPrint('Erreur arrêt scanner : $e');
+    }
+
+    if (!mounted) return;
+
+    await _showScanResult(value);
   }
 
   // ============================================================
   // RESULTAT SCAN
   // ============================================================
 
-  void _showScanResult(String value) {
+  Future<void> _showScanResult(String value) async {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
       isDismissible: false,
       enableDrag: false,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            25,
-            25,
-            25,
-            35,
-          ),
+          padding: const EdgeInsets.fromLTRB(25, 25, 25, 35),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -622,10 +585,7 @@ class _EmployeeAttendancePageState
               Text(
                 value,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF64748B),
-                ),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
               ),
 
               const SizedBox(height: 25),
@@ -637,26 +597,33 @@ class _EmployeeAttendancePageState
                   onPressed: () {
                     Navigator.pop(context);
 
-                    _isProcessing = false;
+                    if (!mounted) return;
 
-                    _scannerController.start();
+                    setState(() {
+                      _isProcessing = false;
+                    });
+
+                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                      if (!mounted || _showCard) return;
+
+                      try {
+                        await _scannerController.start();
+                      } catch (e) {
+                        debugPrint('Erreur redémarrage caméra : $e');
+                      }
+                    });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        const Color(0xFF111827),
+                    backgroundColor: const Color(0xFF111827),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: const Text(
                     'Continuer',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -671,8 +638,14 @@ class _EmployeeAttendancePageState
   // AFFICHER LA CARTE
   // ============================================================
 
-  void _showCardView() {
-    _scannerController.stop();
+  Future<void> _showCardView() async {
+    try {
+      await _scannerController.stop();
+    } catch (e) {
+      debugPrint('Erreur arrêt caméra : $e');
+    }
+
+    if (!mounted) return;
 
     setState(() {
       _showCard = true;
@@ -686,14 +659,24 @@ class _EmployeeAttendancePageState
   // ============================================================
 
   void _showScannerView() {
+    if (_showCard == false) return;
+
     setState(() {
       _showCard = false;
       _isScanning = true;
       _isProcessing = false;
     });
 
-    // La caméra démarre automatiquement.
-    _scannerController.start();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _showCard) return;
+
+      try {
+        await _scannerController.start();
+        debugPrint('📷 Scanner démarré');
+      } catch (e) {
+        debugPrint('❌ Erreur démarrage caméra : $e');
+      }
+    });
   }
 
   // ============================================================
@@ -714,7 +697,6 @@ class _EmployeeAttendancePageState
           // ======================================================
           // SCANNER
           // ======================================================
-
           Expanded(
             child: _buildSwitchItem(
               title: 'Scanner un code',
@@ -727,7 +709,6 @@ class _EmployeeAttendancePageState
           // ======================================================
           // CARTE
           // ======================================================
-
           Expanded(
             child: _buildSwitchItem(
               title: 'Ma carte',
@@ -758,16 +739,12 @@ class _EmployeeAttendancePageState
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
-          color: selected
-              ? Colors.white
-              : Colors.transparent,
+          color: selected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(32),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: 0.12,
-                    ),
+                    color: Colors.black.withValues(alpha: 0.12),
                     blurRadius: 5,
                     offset: const Offset(0, 2),
                   ),
@@ -776,29 +753,18 @@ class _EmployeeAttendancePageState
         ),
         child: Center(
           child: Row(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (!selected)
-                Icon(
-                  icon,
-                  size: 17,
-                  color: Colors.white,
-                ),
+              if (!selected) Icon(icon, size: 17, color: Colors.white),
 
-              if (!selected)
-                const SizedBox(width: 6),
+              if (!selected) const SizedBox(width: 6),
 
               Text(
                 title,
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: selected
-                      ? FontWeight.w600
-                      : FontWeight.w500,
-                  color: selected
-                      ? const Color(0xFF111111)
-                      : Colors.white,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected ? const Color(0xFF111111) : Colors.white,
                 ),
               ),
             ],
@@ -815,30 +781,17 @@ class _EmployeeAttendancePageState
 
 class _CardPatternPainter extends CustomPainter {
   @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
+  void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(
-        alpha: 0.08,
-      )
+      ..color = Colors.white.withValues(alpha: 0.08)
       ..strokeWidth = 7
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
     const spacing = 70.0;
 
-    for (
-      double y = -100;
-      y < size.height + 100;
-      y += spacing
-    ) {
-      for (
-        double x = -100;
-        x < size.width + 100;
-        x += spacing
-      ) {
+    for (double y = -100; y < size.height + 100; y += spacing) {
+      for (double x = -100; x < size.width + 100; x += spacing) {
         final path = Path();
 
         path.moveTo(x, y + 30);
@@ -853,9 +806,7 @@ class _CardPatternPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(
-    covariant CustomPainter oldDelegate,
-  ) {
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return false;
   }
 }
@@ -866,67 +817,40 @@ class _CardPatternPainter extends CustomPainter {
 
 class _ScannerOverlayPainter extends CustomPainter {
   @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    final overlayPaint = Paint()
-      ..color = Colors.black.withValues(
-        alpha: 0.38,
-      );
+  void paint(Canvas canvas, Size size) {
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.38);
 
     final rect = Offset.zero & size;
 
-    canvas.drawRect(
-      rect,
-      overlayPaint,
-    );
+    canvas.drawRect(rect, overlayPaint);
 
     // Zone transparente
-    final scanSize = size.width > 380
-        ? 320.0
-        : size.width - 55;
+    final scanSize = size.width > 380 ? 320.0 : size.width - 55;
 
-    final scanTop =
-        (size.height - 320) / 2 - 25;
+    final scanTop = (size.height - 320) / 2 - 25;
 
     final scanRect = RRect.fromRectAndRadius(
       Rect.fromCenter(
-        center: Offset(
-          size.width / 2,
-          scanTop + scanSize / 2,
-        ),
+        center: Offset(size.width / 2, scanTop + scanSize / 2),
         width: scanSize,
         height: scanSize,
       ),
       const Radius.circular(28),
     );
 
-    final clearPaint = Paint()
-      ..blendMode = BlendMode.clear;
+    final clearPaint = Paint()..blendMode = BlendMode.clear;
 
-    canvas.saveLayer(
-      rect,
-      Paint(),
-    );
+    canvas.saveLayer(rect, Paint());
 
-    canvas.drawRect(
-      rect,
-      overlayPaint,
-    );
+    canvas.drawRect(rect, overlayPaint);
 
-    canvas.drawRRect(
-      scanRect,
-      clearPaint,
-    );
+    canvas.drawRRect(scanRect, clearPaint);
 
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(
-    covariant CustomPainter oldDelegate,
-  ) {
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return false;
   }
 }
@@ -937,10 +861,7 @@ class _ScannerOverlayPainter extends CustomPainter {
 
 class _ScannerFramePainter extends CustomPainter {
   @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
+  void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = const Color(0xFF20C4F4)
       ..strokeWidth = 4
@@ -958,18 +879,10 @@ class _ScannerFramePainter extends CustomPainter {
 
     topLeft.moveTo(10, cornerLength);
     topLeft.lineTo(10, radius);
-    topLeft.quadraticBezierTo(
-      10,
-      10,
-      radius,
-      10,
-    );
+    topLeft.quadraticBezierTo(10, 10, radius, 10);
     topLeft.lineTo(cornerLength, 10);
 
-    canvas.drawPath(
-      topLeft,
-      paint,
-    );
+    canvas.drawPath(topLeft, paint);
 
     // ============================================================
     // HAUT DROIT
@@ -977,32 +890,15 @@ class _ScannerFramePainter extends CustomPainter {
 
     final topRight = Path();
 
-    topRight.moveTo(
-      size.width - cornerLength,
-      10,
-    );
+    topRight.moveTo(size.width - cornerLength, 10);
 
-    topRight.lineTo(
-      size.width - radius,
-      10,
-    );
+    topRight.lineTo(size.width - radius, 10);
 
-    topRight.quadraticBezierTo(
-      size.width - 10,
-      10,
-      size.width - 10,
-      radius,
-    );
+    topRight.quadraticBezierTo(size.width - 10, 10, size.width - 10, radius);
 
-    topRight.lineTo(
-      size.width - 10,
-      cornerLength,
-    );
+    topRight.lineTo(size.width - 10, cornerLength);
 
-    canvas.drawPath(
-      topRight,
-      paint,
-    );
+    canvas.drawPath(topRight, paint);
 
     // ============================================================
     // BAS GAUCHE
@@ -1010,15 +906,9 @@ class _ScannerFramePainter extends CustomPainter {
 
     final bottomLeft = Path();
 
-    bottomLeft.moveTo(
-      10,
-      size.height - cornerLength,
-    );
+    bottomLeft.moveTo(10, size.height - cornerLength);
 
-    bottomLeft.lineTo(
-      10,
-      size.height - radius,
-    );
+    bottomLeft.lineTo(10, size.height - radius);
 
     bottomLeft.quadraticBezierTo(
       10,
@@ -1027,15 +917,9 @@ class _ScannerFramePainter extends CustomPainter {
       size.height - 10,
     );
 
-    bottomLeft.lineTo(
-      cornerLength,
-      size.height - 10,
-    );
+    bottomLeft.lineTo(cornerLength, size.height - 10);
 
-    canvas.drawPath(
-      bottomLeft,
-      paint,
-    );
+    canvas.drawPath(bottomLeft, paint);
 
     // ============================================================
     // BAS DROIT
@@ -1043,15 +927,9 @@ class _ScannerFramePainter extends CustomPainter {
 
     final bottomRight = Path();
 
-    bottomRight.moveTo(
-      size.width - cornerLength,
-      size.height - 10,
-    );
+    bottomRight.moveTo(size.width - cornerLength, size.height - 10);
 
-    bottomRight.lineTo(
-      size.width - radius,
-      size.height - 10,
-    );
+    bottomRight.lineTo(size.width - radius, size.height - 10);
 
     bottomRight.quadraticBezierTo(
       size.width - 10,
@@ -1060,21 +938,13 @@ class _ScannerFramePainter extends CustomPainter {
       size.height - radius,
     );
 
-    bottomRight.lineTo(
-      size.width - 10,
-      size.height - cornerLength,
-    );
+    bottomRight.lineTo(size.width - 10, size.height - cornerLength);
 
-    canvas.drawPath(
-      bottomRight,
-      paint,
-    );
+    canvas.drawPath(bottomRight, paint);
   }
 
   @override
-  bool shouldRepaint(
-    covariant CustomPainter oldDelegate,
-  ) {
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return false;
   }
 }
@@ -1087,12 +957,10 @@ class _ScannerLine extends StatefulWidget {
   const _ScannerLine();
 
   @override
-  State<_ScannerLine> createState() =>
-      _ScannerLineState();
+  State<_ScannerLine> createState() => _ScannerLineState();
 }
 
-class _ScannerLineState
-    extends State<_ScannerLine>
+class _ScannerLineState extends State<_ScannerLine>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -1102,9 +970,7 @@ class _ScannerLineState
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(
-        milliseconds: 1800,
-      ),
+      duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
   }
 
@@ -1118,26 +984,16 @@ class _ScannerLineState
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (
-        context,
-        child,
-      ) {
+      builder: (context, child) {
         return Transform.translate(
-          offset: Offset(
-            0,
-            (_controller.value - 0.5) * 240,
-          ),
+          offset: Offset(0, (_controller.value - 0.5) * 240),
           child: Container(
             height: 2,
             decoration: BoxDecoration(
               color: const Color(0xFF20C4F4),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(
-                    0xFF20C4F4,
-                  ).withValues(
-                    alpha: 0.8,
-                  ),
+                  color: const Color(0xFF20C4F4).withValues(alpha: 0.8),
                   blurRadius: 8,
                 ),
               ],
