@@ -20,9 +20,9 @@ class _LoginPageState extends State<LoginPage> {
   bool obscurePassword = true;
   bool loading = false;
   bool checkingInstallation = true;
-
-  bool showKioskButton = false;
   bool showSetupButton = false;
+  bool showKioskButton = false;
+  bool superAdminExists = false;
 
   @override
   void initState() {
@@ -38,54 +38,43 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final response = await http.get(
         Uri.parse(ApiConfig.installationStatus),
-        headers: const {
-          'Accept': 'application/json',
-        },
+        headers: const {'Accept': 'application/json'},
       );
 
-      debugPrint(
-        'INSTALLATION STATUS : ${response.statusCode}',
-      );
+      debugPrint('INSTALLATION STATUS : ${response.statusCode}');
 
       debugPrint(response.body);
 
       if (response.statusCode != 200) {
-        throw Exception(
-          'Impossible de vérifier l’état de l’installation.',
-        );
+        throw Exception('Impossible de vérifier l’état de l’installation.');
       }
 
       final data = jsonDecode(response.body);
-
       final result = data['data'] ?? {};
 
       if (!mounted) return;
 
       setState(() {
-        showKioskButton =
-            result['show_kiosk_button'] == true;
+        superAdminExists = result['super_admin_exists'] == true;
 
-        // À adapter au nom exact retourné par Laravel
-        showSetupButton =
-            result['show_setup_button'] == true;
+        showKioskButton = result['show_kiosk_button'] == true;
+
+        showSetupButton = result['show_setup_button'] == true;
 
         checkingInstallation = false;
       });
     } catch (e) {
-      debugPrint(
-        'INSTALLATION STATUS ERROR : $e',
-      );
+      debugPrint('INSTALLATION STATUS ERROR : $e');
 
       if (!mounted) return;
 
       setState(() {
+        superAdminExists = false;
         showKioskButton = false;
-        showSetupButton = false;
         checkingInstallation = false;
       });
     }
   }
-
   // ============================================================
   // CONNEXION
   // ============================================================
@@ -95,10 +84,7 @@ class _LoginPageState extends State<LoginPage> {
     final password = passwordController.text.trim();
 
     if (login.isEmpty || password.isEmpty) {
-      _showMessage(
-        'Veuillez remplir tous les champs.',
-        isError: true,
-      );
+      _showMessage('Veuillez remplir tous les champs.', isError: true);
       return;
     }
 
@@ -119,25 +105,17 @@ class _LoginPageState extends State<LoginPage> {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'login': login,
-          'password': password,
-        }),
+        body: jsonEncode({'login': login, 'password': password}),
       );
 
-      debugPrint(
-        'LOGIN STATUS : ${response.statusCode}',
-      );
+      debugPrint('LOGIN STATUS : ${response.statusCode}');
 
       debugPrint(response.body);
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode != 200) {
-        throw Exception(
-          data['message'] ??
-              'Identifiants incorrects.',
-        );
+        throw Exception(data['message'] ?? 'Identifiants incorrects.');
       }
 
       final result = data['data'] ?? {};
@@ -145,32 +123,20 @@ class _LoginPageState extends State<LoginPage> {
       final token = result['token'];
 
       if (token == null || token.toString().isEmpty) {
-        throw Exception(
-          'Token d’authentification manquant.',
-        );
+        throw Exception('Token d’authentification manquant.');
       }
 
       final roles = result['roles'] != null
           ? List<String>.from(result['roles'])
           : <String>[];
 
-      final prefs =
-          await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
 
-      await prefs.setString(
-        'token',
-        token.toString(),
-      );
+      await prefs.setString('token', token.toString());
 
-      await prefs.setString(
-        'user',
-        jsonEncode(result['user']),
-      );
+      await prefs.setString('user', jsonEncode(result['user']));
 
-      await prefs.setString(
-        'roles',
-        jsonEncode(roles),
-      );
+      await prefs.setString('roles', jsonEncode(roles));
 
       // ========================================================
       // DÉTERMINATION DU RÔLE
@@ -178,10 +144,7 @@ class _LoginPageState extends State<LoginPage> {
 
       final route = _getHomeRoute(roles);
 
-      await prefs.setString(
-        'home_route',
-        route,
-      );
+      await prefs.setString('home_route', route);
 
       if (!mounted) return;
 
@@ -193,9 +156,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       _showMessage(
-        e.toString()
-            .replaceFirst('Exception:', '')
-            .trim(),
+        e.toString().replaceFirst('Exception:', '').trim(),
         isError: true,
       );
     } finally {
@@ -216,8 +177,7 @@ class _LoginPageState extends State<LoginPage> {
       return 'kiosk';
     }
 
-    if (roles.contains('super_admin') ||
-        roles.contains('admin_rh')) {
+    if (roles.contains('super_admin') || roles.contains('admin_rh')) {
       return 'admin';
     }
 
@@ -263,18 +223,14 @@ class _LoginPageState extends State<LoginPage> {
   // MESSAGE
   // ============================================================
 
-  void _showMessage(
-    String message, {
-    bool isError = false,
-  }) {
+  void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor:
-            isError ? Colors.red.shade700 : Colors.green.shade700,
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
       ),
     );
   }
@@ -297,7 +253,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-
     final isMobile = width < 768;
 
     return Scaffold(
@@ -305,67 +260,48 @@ class _LoginPageState extends State<LoginPage> {
 
       body: SafeArea(
         child: checkingInstallation
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
+            ? const Center(child: CircularProgressIndicator())
             : isMobile
-                ? _mobileLayout()
-                : _desktopLayout(),
+            ? _mobileLayout()
+            : _desktopLayout(),
       ),
 
       // ========================================================
       // KIOSK
+      // Affiché uniquement si un super_admin existe
       // ========================================================
+      floatingActionButton: superAdminExists && showKioskButton
+          ? FloatingActionButton.extended(
+              onPressed: loading
+                  ? null
+                  : () {
+                      context.goNamed('kiosk-login');
+                      print('okok');
+                    },
+              backgroundColor: const Color(0xFF0F172A),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.point_of_sale),
+              label: const Text(
+                'Activer le Pointeur',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            )
+          : null,
 
-      floatingActionButton:
-          showKioskButton
-              ? FloatingActionButton.extended(
-                  onPressed: loading
-                      ? null
-                      : () {
-                          context.goNamed(
-                            'kiosk-login',
-                          );
-                        },
-                  backgroundColor:
-                      const Color(0xFF0F172A),
-                  foregroundColor: Colors.white,
-                  icon: const Icon(
-                    Icons.point_of_sale,
-                  ),
-                  label: const Text(
-                    'Connexion Kiosk',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                )
-              : null,
-
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
-
-  // ============================================================
-  // DESKTOP
-  // ============================================================
 
   Widget _desktopLayout() {
     return Row(
       children: [
-        Expanded(
-          flex: 6,
-          child: _desktopBrand(),
-        ),
+        Expanded(flex: 6, child: _desktopBrand()),
 
         Expanded(
           flex: 4,
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 450,
-              ),
+              constraints: const BoxConstraints(maxWidth: 450),
               child: _loginForm(),
             ),
           ),
@@ -387,10 +323,7 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                'assets/images/logo_Splash.jpg',
-                height: 120,
-              ),
+              Image.asset('assets/images/logo_Splash.jpg', height: 120),
 
               const SizedBox(height: 35),
 
@@ -426,26 +359,17 @@ class _LoginPageState extends State<LoginPage> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.white24,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(30),
+                  border: Border.all(color: Colors.white24),
+                  borderRadius: BorderRadius.circular(30),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.security,
-                      color: Colors.white70,
-                      size: 18,
-                    ),
+                    Icon(Icons.security, color: Colors.white70, size: 18),
                     SizedBox(width: 8),
                     Text(
                       'Accès sécurisé',
-                      style: TextStyle(
-                        color: Colors.white70,
-                      ),
+                      style: TextStyle(color: Colors.white70),
                     ),
                   ],
                 ),
@@ -468,36 +392,24 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           const SizedBox(height: 35),
 
-          Image.asset(
-            'assets/images/logo_Splash.jpg',
-            height: 90,
-          ),
+          Image.asset('assets/images/logo_Splash.jpg', height: 90),
 
           const SizedBox(height: 25),
 
-          const Icon(
-            Icons.fingerprint,
-            size: 80,
-            color: Color(0xFF0F172A),
-          ),
+          const Icon(Icons.fingerprint, size: 80, color: Color(0xFF0F172A)),
 
           const SizedBox(height: 15),
 
           const Text(
             'Bienvenue',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
 
           const SizedBox(height: 8),
 
           Text(
             'Connectez-vous à votre espace',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(color: Colors.grey.shade600),
           ),
 
           const SizedBox(height: 25),
@@ -518,9 +430,7 @@ class _LoginPageState extends State<LoginPage> {
     return Card(
       elevation: 5,
       shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
@@ -544,9 +454,7 @@ class _LoginPageState extends State<LoginPage> {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Accédez à votre espace personnel',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(color: Colors.grey.shade600),
               ),
             ),
 
@@ -555,22 +463,15 @@ class _LoginPageState extends State<LoginPage> {
             // ==================================================
             // LOGIN
             // ==================================================
-
             TextField(
               controller: loginController,
-              keyboardType:
-                  TextInputType.emailAddress,
-              textInputAction:
-                  TextInputAction.next,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
               decoration: InputDecoration(
-                labelText:
-                    'Email ou numéro de téléphone',
-                prefixIcon: const Icon(
-                  Icons.person_outline,
-                ),
+                labelText: 'Email ou numéro de téléphone',
+                prefixIcon: const Icon(Icons.person_outline),
                 border: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
@@ -580,12 +481,10 @@ class _LoginPageState extends State<LoginPage> {
             // ==================================================
             // PASSWORD
             // ==================================================
-
             TextField(
               controller: passwordController,
               obscureText: obscurePassword,
-              textInputAction:
-                  TextInputAction.done,
+              textInputAction: TextInputAction.done,
               onSubmitted: (_) {
                 if (!loading) {
                   _login();
@@ -593,24 +492,19 @@ class _LoginPageState extends State<LoginPage> {
               },
               decoration: InputDecoration(
                 labelText: 'Mot de passe',
-                prefixIcon:
-                    const Icon(Icons.lock_outline),
+                prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    obscurePassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
+                    obscurePassword ? Icons.visibility_off : Icons.visibility,
                   ),
                   onPressed: () {
                     setState(() {
-                      obscurePassword =
-                          !obscurePassword;
+                      obscurePassword = !obscurePassword;
                     });
                   },
                 ),
                 border: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
@@ -620,20 +514,15 @@ class _LoginPageState extends State<LoginPage> {
             // ==================================================
             // MOT DE PASSE OUBLIÉ
             // ==================================================
-
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: loading
                     ? null
                     : () {
-                        context.goNamed(
-                          'forgot-password',
-                        );
+                        context.goNamed('forgot-password');
                       },
-                child: const Text(
-                  'Mot de passe oublié ?',
-                ),
+                child: const Text('Mot de passe oublié ?'),
               ),
             ),
 
@@ -642,37 +531,29 @@ class _LoginPageState extends State<LoginPage> {
             // ==================================================
             // CONNEXION
             // ==================================================
-
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton(
-                onPressed:
-                    loading ? null : _login,
-                style:
-                    ElevatedButton.styleFrom(
-                  backgroundColor:
-                      const Color(0xFF0F172A),
+                onPressed: loading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
                   foregroundColor: Colors.white,
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: loading
                     ? const SizedBox(
                         width: 24,
                         height: 24,
-                        child:
-                            CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: Colors.white,
                         ),
                       )
                     : const Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.login),
                           SizedBox(width: 10),
@@ -680,8 +561,7 @@ class _LoginPageState extends State<LoginPage> {
                             'Se connecter',
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -694,35 +574,21 @@ class _LoginPageState extends State<LoginPage> {
             // ==================================================
             // SÉPARATEUR
             // ==================================================
-
             Row(
               children: [
-                Expanded(
-                  child: Divider(
-                    color: Colors.grey.shade300,
-                  ),
-                ),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 12,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     'AUTRES ACCÈS',
                     style: TextStyle(
                       fontSize: 11,
-                      color:
-                          Colors.grey.shade500,
-                      fontWeight:
-                          FontWeight.bold,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                Expanded(
-                  child: Divider(
-                    color: Colors.grey.shade300,
-                  ),
-                ),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
               ],
             ),
 
@@ -731,24 +597,17 @@ class _LoginPageState extends State<LoginPage> {
             // ==================================================
             // PREMIÈRE CONFIGURATION
             // ==================================================
-
-            if (showSetupButton)
+            if (!superAdminExists)
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: loading
                       ? null
                       : () {
-                          context.goNamed(
-                            'setup-admin',
-                          );
+                          context.goNamed('setup-admin');
                         },
-                  icon: const Icon(
-                    Icons.settings_outlined,
-                  ),
-                  label: const Text(
-                    'Première configuration',
-                  ),
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('Première configuration'),
                 ),
               ),
 
@@ -756,38 +615,34 @@ class _LoginPageState extends State<LoginPage> {
             // KIOSK
             // ==================================================
 
-            if (showKioskButton)
-              Padding(
-                padding:
-                    const EdgeInsets.only(top: 10),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: loading
-                        ? null
-                        : () {
-                            context.goNamed(
-                              'kiosk-login',
-                            );
-                          },
-                    icon: const Icon(
-                      Icons.point_of_sale_outlined,
-                    ),
-                    label: const Text(
-                      'Configurer / connecter un Kiosk',
-                    ),
-                  ),
-                ),
-              ),
-
+            // if (showKioskButton)
+            //   Padding(
+            //     padding:
+            //         const EdgeInsets.only(top: 10),
+            //     child: SizedBox(
+            //       width: double.infinity,
+            //       child: OutlinedButton.icon(
+            //         onPressed: loading
+            //             ? null
+            //             : () {
+            //                 context.goNamed(
+            //                   'kiosk-login',
+            //                 );
+            //               },
+            //         icon: const Icon(
+            //           Icons.point_of_sale_outlined,
+            //         ),
+            //         label: const Text(
+            //           'Configurer / connecter un Kiosk',
+            //         ),
+            //       ),
+            //     ),
+            //   ),
             const SizedBox(height: 20),
 
             Text(
               'Attendance • Gestion de présence',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade500,
-              ),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ],
         ),
