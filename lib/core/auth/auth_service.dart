@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 class AuthService {
   AuthService._();
@@ -14,7 +15,33 @@ class AuthService {
   static const String _tokenKey = 'token';
   static const String _userKey = 'user';
   static const String _rolesKey = 'roles';
+  static const String _deviceIdKey = 'attendance_device_id';
 
+
+// =======================================================
+// Info device
+// =====================================================
+
+  static Future<String> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // On récupère l'ID déjà généré
+    final existingId = prefs.getString(_deviceIdKey);
+
+    if (existingId != null && existingId.isNotEmpty) {
+      return existingId;
+    }
+
+    // Génération d'un nouvel ID
+    final deviceId = const Uuid().v4();
+
+    await prefs.setString(
+      _deviceIdKey,
+      deviceId,
+    );
+
+    return deviceId;
+  }
   // ============================================================
   // TOKEN
   // ============================================================

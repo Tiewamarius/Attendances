@@ -543,34 +543,7 @@ class _EmployeeHistoryPageState
               text: 'Aucun pointage enregistré',
             )
           else
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTimeInfo(
-                    'ARRIVÉE',
-                    item.arrival ?? '--:--',
-                    Icons.login_rounded,
-                  ),
-                ),
-
-                Expanded(
-                  child: _buildTimeInfo(
-                    'DÉPART',
-                    item.departure ?? '--:--',
-                    Icons.logout_rounded,
-                  ),
-                ),
-
-                Expanded(
-                  child: _buildTimeInfo(
-                    'TOTAL',
-                    item.total,
-                    Icons.timer_outlined,
-                    isBold: true,
-                  ),
-                ),
-              ],
-            ),
+            Row( children: [ Expanded( child: _buildTimeInfo( 'ARRIVÉE', _formatTime(item.arrival), Icons.login_rounded, ), ), Expanded( child: _buildTimeInfo( 'DÉPART', _formatTime(item.departure), Icons.logout_rounded, ), ), Expanded( child: _buildTimeInfo( 'TOTAL', _formatTime(item.total), Icons.timer_outlined, isBold: true, ), ), ], ),
         ],
       ),
     );
@@ -667,6 +640,39 @@ class _EmployeeHistoryPageState
       ],
     );
   }
+  
+  // FORMAT HEURE
+String _formatTime(String? value) {
+  if (value == null || value.isEmpty) {
+    return '--:--';
+  }
+
+  try {
+    // Cas : 08:30:00
+    if (RegExp(r'^\d{2}:\d{2}:\d{2}').hasMatch(value)) {
+      return value.substring(0, 5);
+    }
+
+    // Cas : 08:30
+    if (RegExp(r'^\d{2}:\d{2}$').hasMatch(value)) {
+      return value;
+    }
+
+    // Cas : 2026-09-01T08:30:00
+    final dateTime = DateTime.tryParse(value);
+
+    if (dateTime != null) {
+      final hour = dateTime.hour.toString().padLeft(2, '0');
+      final minute = dateTime.minute.toString().padLeft(2, '0');
+
+      return '$hour:$minute';
+    }
+
+    return value;
+  } catch (_) {
+    return value;
+  }
+}
 
   // ============================================================
   // DATE FORMAT
