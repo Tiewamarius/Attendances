@@ -1,8 +1,8 @@
+import 'package:attendance/models/kiosk_model.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:attendance/models/admins/department_model.dart';
-import 'package:attendance/models/admins/kiosk_model..dart';
-import 'package:attendance/models/admins/model_roles.dart';
+import 'package:attendance/models/department_model.dart';
+import 'package:attendance/models/model_roles.dart';
 import 'package:attendance/models/user_model.dart';
 
 import 'package:attendance/services/user_service.dart';

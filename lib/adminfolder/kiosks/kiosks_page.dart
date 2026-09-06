@@ -1,7 +1,7 @@
+import 'package:attendance/models/kiosk_model.dart';
 import 'package:flutter/material.dart';
 
 import 'package:attendance/controllers/admins/kiosk_controller.dart';
-import 'package:attendance/models/admins/kiosk_model..dart';
 
 class KioskPage extends StatefulWidget {
   const KioskPage({super.key});
@@ -122,7 +122,7 @@ class _KioskPageState extends State<KioskPage> {
             if (kiosk.location != null)
               Text('Lieu : ${kiosk.location}'),
 
-            Text('Mode : ${kiosk.method}'),
+            Text('Mode : ${kiosk.mode}'),
 
             if (kiosk.ipAddress != null)
               Text('IP : ${kiosk.ipAddress}'),

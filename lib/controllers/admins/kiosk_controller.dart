@@ -1,4 +1,4 @@
-import 'package:attendance/models/admins/kiosk_model..dart';
+import 'package:attendance/models/kiosk_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:attendance/services/admins/kiosk_service.dart';
 

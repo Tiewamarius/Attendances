@@ -1,9 +1,8 @@
 import 'dart:convert';
 
+import 'package:attendance/models/employee_model.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:attendance/models/employees/employee_model.dart';
 import 'package:attendance/employesfolder/pages/employee_home_page.dart.dart';
 import 'package:attendance/employesfolder/pages/employee_history_page.dart';
 import 'package:attendance/employesfolder/pages/planning_pages.dart';

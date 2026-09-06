@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:attendance/controllers/employees/employee_conttroller.dart';
 import 'package:attendance/employesfolder/pages/employee_attendance_page.dart';
+import 'package:attendance/models/employee_model.dart';
 import 'package:flutter/material.dart';
 
-import 'package:attendance/models/employees/employee_model.dart';
 
 class EmployeHome extends StatefulWidget {
   const EmployeHome({super.key});
@@ -315,7 +315,7 @@ class _EmployeHomeState extends State<EmployeHome> {
   Widget _initials(EmployeeModel employee) {
     return Center(
       child: Text(
-        employee.initials,
+        employee.initials ?? '',
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,

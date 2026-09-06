@@ -1,4 +1,4 @@
-class Employee {
+class EmployeeModel {
   final int id;
   final int userId;
   final String employeeCode;
@@ -14,7 +14,7 @@ class Employee {
   final Department? department;
   final Manager? manager;
 
-  Employee({
+  EmployeeModel({
     required this.id,
     required this.userId,
     required this.employeeCode,
@@ -31,8 +31,8 @@ class Employee {
     this.manager,
   });
 
-  factory Employee.fromJson(Map<String, dynamic> json) {
-    return Employee(
+  factory EmployeeModel.fromJson(Map<String, dynamic> json) {
+    return EmployeeModel(
       id: json['id'],
       userId: json['user_id'],
       employeeCode: json['employee_code'] ?? '',
@@ -53,6 +53,8 @@ class Employee {
           : null,
     );
   }
+
+  String? get initials => null;
 }
 
 class Department {

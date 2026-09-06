@@ -1,4 +1,4 @@
-import 'package:attendance/models/admins/dashboard_model.dart';
+import 'package:attendance/models/dashboard_model.dart';
 import 'package:flutter/material.dart';
 
 class UserService {

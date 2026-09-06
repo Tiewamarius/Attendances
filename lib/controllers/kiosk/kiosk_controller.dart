@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:attendance/models/kiosk/kiosk_model.dart';
+import 'package:attendance/models/kiosk_model.dart';
 import 'package:attendance/services/kiosk/kiosk_service.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,7 +12,7 @@ class KioskController extends ChangeNotifier {
   }) : _service = service ?? KioskService();
 
   // ============================================================
-  // ÉTAT
+  // STATE
   // ============================================================
 
   KioskModel? _kiosk;
@@ -33,17 +33,30 @@ class KioskController extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
 
-  bool get isAuthenticated => _isAuthenticated;
+  bool get isAuthenticated =>
+      _isAuthenticated;
 
-  String? get errorMessage => _errorMessage;
+  String? get errorMessage =>
+      _errorMessage;
+
+  bool get hasKiosk =>
+      _kiosk != null;
 
   // ============================================================
   // LOGIN
   // ============================================================
+  //
+  // Authentification avec :
+  //
+  //     NOM + CODE
+  //
+  // Aucun api_key.
+  //
+  // ============================================================
 
   Future<bool> login({
+    required String name,
     required String code,
-    required String apiKey,
     String? deviceId,
     String? deviceName,
     String? deviceModel,
@@ -55,9 +68,10 @@ class KioskController extends ChangeNotifier {
     try {
       _errorMessage = null;
 
-      final kiosk = await _service.login(
+      final kiosk =
+          await _service.login(
+        name: name,
         code: code,
-        apiKey: apiKey,
         deviceId: deviceId,
         deviceName: deviceName,
         deviceModel: deviceModel,
@@ -66,10 +80,14 @@ class KioskController extends ChangeNotifier {
       );
 
       _kiosk = kiosk;
+
       _isAuthenticated = true;
 
+      _errorMessage = null;
+
       _startHeartbeat(
-        appVersion: appVersion,
+        appVersion: kiosk.appVersion ??
+            appVersion,
       );
 
       notifyListeners();
@@ -81,12 +99,11 @@ class KioskController extends ChangeNotifier {
       );
 
       _errorMessage =
-          e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              );
+          _cleanError(e);
 
       _isAuthenticated = false;
+
+      _kiosk = null;
 
       notifyListeners();
 
@@ -101,24 +118,34 @@ class KioskController extends ChangeNotifier {
   // ============================================================
 
   Future<bool> checkSession() async {
+    final token =
+        await _service.getToken();
+
+    if (token == null ||
+        token.isEmpty) {
+      _isAuthenticated = false;
+      _kiosk = null;
+
+      notifyListeners();
+
+      return false;
+    }
+
     try {
-      final token =
-          await _service.getToken();
-
-      if (token == null ||
-          token.trim().isEmpty) {
-        return false;
-      }
-
       final kiosk =
           await _service.me();
 
       _kiosk = kiosk;
+
       _isAuthenticated = true;
 
-      notifyListeners();
+      _errorMessage = null;
 
-      _startHeartbeat();
+      _startHeartbeat(
+        appVersion: kiosk.appVersion,
+      );
+
+      notifyListeners();
 
       return true;
     } catch (e) {
@@ -126,7 +153,24 @@ class KioskController extends ChangeNotifier {
         '❌ KIOSK SESSION ERROR: $e',
       );
 
-      await logout();
+      /*
+       * Si le serveur renvoie 401/403,
+       * la session n'est plus valide.
+       *
+       * On déconnecte alors le Kiosk.
+       */
+      if (_isAuthenticationError(e)) {
+        await logout();
+      } else {
+        /*
+         * Pour une simple erreur réseau,
+         * on peut conserver la session locale.
+         */
+        _errorMessage =
+            _cleanError(e);
+
+        notifyListeners();
+      }
 
       return false;
     }
@@ -141,7 +185,12 @@ class KioskController extends ChangeNotifier {
   }) {
     _heartbeatTimer?.cancel();
 
-    _heartbeatTimer = Timer.periodic(
+    /*
+     * Premier heartbeat après 2 minutes.
+     */
+
+    _heartbeatTimer =
+        Timer.periodic(
       const Duration(minutes: 2),
       (_) async {
         try {
@@ -156,13 +205,18 @@ class KioskController extends ChangeNotifier {
           debugPrint(
             '❌ Heartbeat error: $e',
           );
+
+          /*
+           * Une coupure réseau temporaire
+           * ne détruit PAS la session.
+           */
         }
       },
     );
   }
 
   // ============================================================
-  // SCAN QR
+  // QR
   // ============================================================
 
   Future<Map<String, dynamic>?> scanQr(
@@ -171,15 +225,21 @@ class KioskController extends ChangeNotifier {
     try {
       _errorMessage = null;
 
-      return await _service.scanQr(
+      final result =
+          await _service.scanQr(
         qrToken,
       );
+
+      notifyListeners();
+
+      return result;
     } catch (e) {
+      debugPrint(
+        '❌ KIOSK QR ERROR: $e',
+      );
+
       _errorMessage =
-          e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              );
+          _cleanError(e);
 
       notifyListeners();
 
@@ -198,16 +258,22 @@ class KioskController extends ChangeNotifier {
     try {
       _errorMessage = null;
 
-      return await _service.checkPin(
+      final result =
+          await _service.checkPin(
         employeeCode: employeeCode,
         pin: pin,
       );
+
+      notifyListeners();
+
+      return result;
     } catch (e) {
+      debugPrint(
+        '❌ KIOSK PIN ERROR: $e',
+      );
+
       _errorMessage =
-          e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              );
+          _cleanError(e);
 
       notifyListeners();
 
@@ -221,19 +287,29 @@ class KioskController extends ChangeNotifier {
 
   Future<Map<String, dynamic>?> cameraCheck({
     required String qrToken,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       _errorMessage = null;
 
-      return await _service.cameraCheck(
+      final result =
+          await _service.cameraCheck(
         qrToken: qrToken,
+        latitude: latitude,
+        longitude: longitude,
       );
+
+      notifyListeners();
+
+      return result;
     } catch (e) {
+      debugPrint(
+        '❌ KIOSK CAMERA ERROR: $e',
+      );
+
       _errorMessage =
-          e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              );
+          _cleanError(e);
 
       notifyListeners();
 
@@ -248,10 +324,24 @@ class KioskController extends ChangeNotifier {
   Future<void> logout() async {
     _heartbeatTimer?.cancel();
 
+    _heartbeatTimer = null;
+
     await _service.logout();
 
     _kiosk = null;
+
     _isAuthenticated = false;
+
+    _errorMessage = null;
+
+    notifyListeners();
+  }
+
+  // ============================================================
+  // CLEAR ERROR
+  // ============================================================
+
+  void clearError() {
     _errorMessage = null;
 
     notifyListeners();
@@ -261,14 +351,57 @@ class KioskController extends ChangeNotifier {
   // LOADING
   // ============================================================
 
-  void _setLoading(bool value) {
+  void _setLoading(
+    bool value,
+  ) {
+    if (_isLoading == value) {
+      return;
+    }
+
     _isLoading = value;
+
     notifyListeners();
   }
+
+  // ============================================================
+  // ERROR
+  // ============================================================
+
+  String _cleanError(
+    Object error,
+  ) {
+    return error
+        .toString()
+        .replaceFirst(
+          'Exception: ',
+          '',
+        )
+        .trim();
+  }
+
+  bool _isAuthenticationError(
+    Object error,
+  ) {
+    final message =
+        error.toString().toLowerCase();
+
+    return message.contains('401') ||
+        message.contains('403') ||
+        message.contains('session kiosk expirée') ||
+        message.contains('non authentifié') ||
+        message.contains('token');
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
     _heartbeatTimer?.cancel();
+
+    _heartbeatTimer = null;
+
     super.dispose();
   }
 }

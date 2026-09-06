@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:attendance/models/kiosk_model.dart';
+import 'package:attendance/services/kiosk/kiosk_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -14,28 +17,52 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // MODES
   // ============================================================
 
-  /// Le kiosk affiche son QR.
+  /// Le kiosk affiche son QR de pointage.
   static const int modeKioskQr = 0;
 
   /// Le kiosk ouvre sa caméra et lit le QR de l'employé.
   static const int modeEmployeeQr = 1;
 
-  /// L'employé saisit son PIN.
+  /// L'employé saisit son code + PIN.
   static const int modePin = 2;
 
   int _selectedMode = modeKioskQr;
 
   // ============================================================
+  // SERVICE
+  // ============================================================
+
+  final KioskService _kioskService = KioskService();
+
+  // ============================================================
+  // KIOSK
+  // ============================================================
+
+  KioskModel? _kiosk;
+
+  bool _loadingKiosk = true;
+
+  // ============================================================
   // QR KIOSK
   // ============================================================
 
-  /// TODO:
-  /// Cette valeur devra venir de Laravel.
+  /// IMPORTANT :
+  /// Ce n'est PAS le token Sanctum du kiosk.
   ///
-  /// Exemple :
-  /// https://api.example.com/attendance/kiosk?token=xxxxx
-  String _kioskQrValue =
-      'https://example.com/attendance/kiosk?token=KIOSK_TOKEN';
+  /// Cette valeur est un token temporaire généré par Laravel
+  /// via /kiosk/attendance-qr.
+  String _kioskQrValue = '';
+
+  /// Timer permettant de renouveler automatiquement
+  /// le QR avant son expiration.
+  Timer? _qrRefreshTimer;
+
+  // ============================================================
+  // CODE EMPLOYE
+  // ============================================================
+
+  final TextEditingController _employeeCodeController =
+      TextEditingController();
 
   // ============================================================
   // PIN
@@ -49,10 +76,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // CAMERA
   // ============================================================
 
-  /// Une seule caméra est nécessaire.
-  ///
-  /// Elle sert uniquement au mode :
-  /// "QR Employé".
   late final MobileScannerController _employeeQrController;
 
   // ============================================================
@@ -71,20 +94,168 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     _employeeQrController = MobileScannerController(
       autoStart: false,
-      facing: CameraFacing.back,
+      facing: CameraFacing.front,
       detectionSpeed: DetectionSpeed.noDuplicates,
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startCurrentScanner();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadKiosk();
+
+      if (!mounted) {
+        return;
+      }
+
+      _startQrRefreshTimer();
+
+      await _startCurrentScanner();
     });
   }
 
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
   @override
   void dispose() {
+    _qrRefreshTimer?.cancel();
+
     _employeeQrController.dispose();
+    _employeeCodeController.dispose();
+
     super.dispose();
   }
+
+  // ============================================================
+  // CHARGER KIOSK
+  // ============================================================
+
+  Future<void> _loadKiosk() async {
+  try {
+    final token = await _kioskService.getToken();
+
+    if (token == null || token.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadingKiosk = false;
+        _kioskQrValue = '';
+      });
+
+      _showMessage(
+        'Aucun kiosque connecté.',
+        Colors.red,
+      );
+
+      return;
+    }
+
+    // ------------------------------------------------------------
+    // INFORMATIONS DU KIOSK
+    // ------------------------------------------------------------
+
+    final kiosk = await _kioskService.me();
+
+    // ------------------------------------------------------------
+    // QR DE POINTAGE
+    // ------------------------------------------------------------
+
+    String qrValue = '';
+
+    try {
+      qrValue =
+          await _kioskService.getAttendanceQr();
+    } catch (e) {
+      debugPrint(
+        'Erreur récupération QR Kiosk : $e',
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _kiosk = kiosk;
+      _loadingKiosk = false;
+      _kioskQrValue = qrValue;
+    });
+
+    // ------------------------------------------------------------
+    // HEARTBEAT
+    // ------------------------------------------------------------
+
+    try {
+      await _kioskService.heartbeat();
+    } catch (e) {
+      debugPrint(
+        'Heartbeat kiosk impossible : $e',
+      );
+    }
+  } catch (e) {
+    debugPrint(
+      'Erreur chargement kiosk : $e',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _loadingKiosk = false;
+      _kioskQrValue = '';
+    });
+
+    _showMessage(
+      _cleanError(e),
+      Colors.red,
+    );
+  }
+}
+  // ============================================================
+  // TIMER QR KIOSK
+  // ============================================================
+
+  void _startQrRefreshTimer() {
+  _qrRefreshTimer?.cancel();
+
+  _qrRefreshTimer = Timer.periodic(
+    const Duration(seconds: 45),
+    (_) async {
+      if (!mounted) return;
+      if (_selectedMode != modeKioskQr) return;
+      if (_isProcessing) return;
+
+      await _refreshAttendanceQr();
+    },
+  );
+}
+
+  // ============================================================
+  // RAFRAICHIR QR KIOSK
+  // ============================================================
+
+  Future<void> _refreshAttendanceQr() async {
+  try {
+    final qrValue = await _kioskService.getAttendanceQr();
+
+    if (qrValue.isEmpty) {
+      debugPrint('Token QR Kiosk vide.');
+      return;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _kioskQrValue = qrValue;
+    });
+
+    debugPrint('QR Kiosk renouvelé.');
+  } catch (e) {
+    debugPrint('Erreur renouvellement QR Kiosk : $e');
+  }
+}
 
   // ============================================================
   // CHANGEMENT DE MODE
@@ -95,7 +266,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
-    // Toujours arrêter la caméra avant de changer de mode.
     await _stopScanner();
 
     if (!mounted) {
@@ -105,10 +275,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     setState(() {
       _selectedMode = mode;
       _pinCode = '';
+      _employeeCodeController.clear();
       _isProcessing = false;
     });
 
-    // Seul le mode QR Employé utilise la caméra.
+    // ----------------------------------------------------------
+    // MODE QR KIOSK
+    // ----------------------------------------------------------
+
+    if (mode == modeKioskQr) {
+      await _refreshAttendanceQr();
+    }
+
+    // ----------------------------------------------------------
+    // MODE QR EMPLOYE
+    // ----------------------------------------------------------
+
     if (mode == modeEmployeeQr) {
       await Future.delayed(
         const Duration(milliseconds: 150),
@@ -127,8 +309,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // ============================================================
 
   Future<void> _startCurrentScanner() async {
-    // QR Kiosk = pas de caméra.
-    // PIN = pas de caméra.
     if (_selectedMode != modeEmployeeQr) {
       return;
     }
@@ -179,50 +359,55 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
     });
 
     await _stopScanner();
 
-    debugPrint('========================================');
-    debugPrint('QR EMPLOYE DETECTE');
-    debugPrint('VALUE : $value');
-    debugPrint('========================================');
-
-    // ==========================================================
-    // TODO : APPEL API LARAVEL
-    // ==========================================================
-    //
-    // Exemple :
-    //
-    // final result = await attendanceService.checkInWithQr(
-    //   employeeQr: value,
-    // );
-    //
-    // Puis :
-    //
-    // await _showAttendanceResult(
-    //   success: result.success,
-    //   employeeName: result.employeeName,
-    //   message: result.message,
-    // );
-    //
-    // ==========================================================
-
-    await Future.delayed(
-      const Duration(milliseconds: 500),
+    debugPrint(
+      'QR EMPLOYE DETECTE',
     );
 
-    if (!mounted) {
-      return;
+    try {
+      final result = await _kioskService.scanQr(value);
+
+      final employeeName =
+          _extractEmployeeName(result);
+
+      final message = _extractMessage(
+        result,
+        fallback: 'Pointage enregistré avec succès.',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _showAttendanceResult(
+        success: true,
+        employeeName: employeeName,
+        message: message,
+      );
+    } catch (e) {
+      debugPrint(
+        'Erreur pointage QR : $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _showAttendanceResult(
+        success: false,
+        employeeName: 'Pointage',
+        message: _cleanError(e),
+      );
     }
-
-    await _showAttendanceResult(
-      success: true,
-      employeeName: 'Employé',
-      message: 'Pointage enregistré avec succès.',
-    );
   }
 
   // ============================================================
@@ -230,6 +415,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // ============================================================
 
   Future<void> _submitPin() async {
+    final employeeCode =
+        _employeeCodeController.text.trim();
+
+    if (employeeCode.isEmpty) {
+      _showMessage(
+        'Veuillez entrer votre code employé.',
+        Colors.orange,
+      );
+
+      return;
+    }
+
     if (_pinCode.length < 4) {
       _showMessage(
         'Veuillez entrer un code PIN valide.',
@@ -243,41 +440,165 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
-    setState(() {
-      _isProcessing = true;
-    });
-
-    // ==========================================================
-    // TODO : APPEL API LARAVEL
-    // ==========================================================
-    //
-    // Exemple :
-    //
-    // final result =
-    //     await attendanceService.checkInWithPin(
-    //   pin: _pinCode,
-    // );
-    //
-    // ==========================================================
-
-    await Future.delayed(
-      const Duration(milliseconds: 500),
-    );
-
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _pinCode = '';
-      _isProcessing = false;
+      _isProcessing = true;
     });
 
-    await _showAttendanceResult(
-      success: true,
-      employeeName: 'Employé',
-      message: 'Pointage enregistré avec succès.',
-    );
+    try {
+      final result =
+          await _kioskService.checkPin(
+        employeeCode: employeeCode,
+        pin: _pinCode,
+      );
+
+      final employeeName =
+          _extractEmployeeName(result);
+
+      final message = _extractMessage(
+        result,
+        fallback: 'Pointage enregistré avec succès.',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _pinCode = '';
+        _employeeCodeController.clear();
+      });
+
+      await _showAttendanceResult(
+        success: true,
+        employeeName: employeeName,
+        message: message,
+      );
+    } catch (e) {
+      debugPrint(
+        'Erreur pointage PIN : $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _pinCode = '';
+      });
+
+      await _showAttendanceResult(
+        success: false,
+        employeeName: 'Pointage',
+        message: _cleanError(e),
+      );
+    }
+  }
+
+  // ============================================================
+  // EXTRAIRE NOM EMPLOYE
+  // ============================================================
+
+  String _extractEmployeeName(
+    Map<String, dynamic> result,
+  ) {
+    dynamic data = result['data'];
+
+    if (data is Map<String, dynamic>) {
+      final employee = data['employee'];
+
+      if (employee is Map<String, dynamic>) {
+        final firstName =
+            employee['first_name'] ??
+                employee['firstname'] ??
+                employee['prenom'] ??
+                '';
+
+        final lastName =
+            employee['last_name'] ??
+                employee['lastname'] ??
+                employee['nom'] ??
+                '';
+
+        final fullName =
+            '$firstName $lastName'.trim();
+
+        if (fullName.isNotEmpty) {
+          return fullName;
+        }
+
+        final name = employee['name'];
+
+        if (name != null &&
+            name.toString().trim().isNotEmpty) {
+          return name.toString().trim();
+        }
+      }
+
+      final name = data['employee_name'];
+
+      if (name != null &&
+          name.toString().trim().isNotEmpty) {
+        return name.toString().trim();
+      }
+    }
+
+    final directName = result['employee_name'];
+
+    if (directName != null &&
+        directName.toString().trim().isNotEmpty) {
+      return directName.toString().trim();
+    }
+
+    return 'Employé';
+  }
+
+  // ============================================================
+  // EXTRAIRE MESSAGE
+  // ============================================================
+
+  String _extractMessage(
+    Map<String, dynamic> result, {
+    required String fallback,
+  }) {
+    final message = result['message'];
+
+    if (message != null &&
+        message.toString().trim().isNotEmpty) {
+      return message.toString();
+    }
+
+    final data = result['data'];
+
+    if (data is Map<String, dynamic>) {
+      final dataMessage = data['message'];
+
+      if (dataMessage != null &&
+          dataMessage.toString().trim().isNotEmpty) {
+        return dataMessage.toString();
+      }
+    }
+
+    return fallback;
+  }
+
+  // ============================================================
+  // NETTOYER ERREUR
+  // ============================================================
+
+  String _cleanError(Object error) {
+    final text = error.toString();
+
+    if (text.startsWith('Exception: ')) {
+      return text.substring(
+        'Exception: '.length,
+      );
+    }
+
+    return text;
   }
 
   // ============================================================
@@ -294,9 +615,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-          ),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
           ),
@@ -305,10 +625,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ------------------------------------------------
-                // ICON
-                // ------------------------------------------------
-
                 Container(
                   width: 82,
                   height: 82,
@@ -331,10 +647,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                 const SizedBox(height: 22),
 
-                // ------------------------------------------------
-                // TITRE
-                // ------------------------------------------------
-
                 Text(
                   success
                       ? 'Pointage réussi'
@@ -349,10 +661,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                 const SizedBox(height: 8),
 
-                // ------------------------------------------------
-                // EMPLOYE
-                // ------------------------------------------------
-
                 Text(
                   employeeName,
                   textAlign: TextAlign.center,
@@ -365,10 +673,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                 const SizedBox(height: 8),
 
-                // ------------------------------------------------
-                // MESSAGE
-                // ------------------------------------------------
-
                 Text(
                   message,
                   textAlign: TextAlign.center,
@@ -380,10 +684,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ),
 
                 const SizedBox(height: 26),
-
-                // ------------------------------------------------
-                // BUTTON
-                // ------------------------------------------------
 
                 SizedBox(
                   width: double.infinity,
@@ -426,10 +726,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _isProcessing = false;
     });
 
-    // Après le résultat :
-    // la caméra redémarre uniquement en mode QR Employé.
     if (_selectedMode == modeEmployeeQr) {
       await _startCurrentScanner();
+    }
+
+    if (_selectedMode == modeKioskQr &&
+        _kioskQrValue.isEmpty) {
+      await _refreshAttendanceQr();
     }
   }
 
@@ -441,6 +744,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     String message,
     Color color,
   ) {
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(context)
         .hideCurrentSnackBar();
 
@@ -465,11 +772,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
 
-    final isTablet = size.shortestSide >= 600;
-    final isLargeScreen = size.width >= 900;
+    final isTablet =
+        size.shortestSide >= 600;
+
+    final isLargeScreen =
+        size.width >= 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor:
+          const Color(0xFFF5F7FA),
       body: SafeArea(
         child: Column(
           children: [
@@ -490,30 +801,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: IndexedStack(
                   index: _selectedMode,
                   children: [
-                    // ==========================================
-                    // MODE 0
-                    // QR DU KIOSK
-                    // ==========================================
-
                     _buildKioskQrMode(
                       isTablet: isTablet,
                     ),
-
-                    // ==========================================
-                    // MODE 1
-                    // QR EMPLOYE
-                    // CAMERA
-                    // ==========================================
-
                     _buildEmployeeQrMode(
                       isTablet: isTablet,
                     ),
-
-                    // ==========================================
-                    // MODE 2
-                    // PIN
-                    // ==========================================
-
                     _buildPinMode(
                       isTablet: isTablet,
                     ),
@@ -551,16 +844,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
       child: Row(
         children: [
-          // ----------------------------------------------------
-          // ICON
-          // ----------------------------------------------------
-
           Container(
             width: isTablet ? 58 : 48,
             height: isTablet ? 58 : 48,
             decoration: BoxDecoration(
               color: const Color(0xFFE8F8FF),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius:
+                  BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.fingerprint_rounded,
@@ -571,16 +861,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
           const SizedBox(width: 14),
 
-          // ----------------------------------------------------
-          // TITLE
-          // ----------------------------------------------------
-
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Pointage',
                   style: TextStyle(
                     fontSize: 22,
@@ -588,46 +874,61 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     color: Color(0xFF111827),
                   ),
                 ),
-                SizedBox(height: 3),
+
+                const SizedBox(height: 3),
+
                 Text(
-                  'QR Code ou code PIN',
-                  style: TextStyle(
+                  _kiosk == null
+                      ? 'QR Code ou code PIN'
+                      : _kiosk!.name,
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF64748B),
                   ),
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
 
-          // ----------------------------------------------------
-          // STATUS
-          // ----------------------------------------------------
-
           Container(
-            padding: const EdgeInsets.symmetric(
+            padding:
+                const EdgeInsets.symmetric(
               horizontal: 11,
               vertical: 8,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8FFF1),
-              borderRadius: BorderRadius.circular(20),
+              color: _loadingKiosk
+                  ? const Color(0xFFFFF7ED)
+                  : const Color(0xFFE8FFF1),
+              borderRadius:
+                  BorderRadius.circular(20),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.circle,
                   size: 8,
-                  color: Color(0xFF16A34A),
+                  color: _loadingKiosk
+                      ? const Color(0xFFF59E0B)
+                      : const Color(0xFF16A34A),
                 ),
-                SizedBox(width: 6),
+
+                const SizedBox(width: 6),
+
                 Text(
-                  'En ligne',
+                  _loadingKiosk
+                      ? 'Connexion'
+                      : 'En ligne',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF15803D),
+                    color: _loadingKiosk
+                        ? const Color(0xFFB45309)
+                        : const Color(0xFF15803D),
                   ),
                 ),
               ],
@@ -662,26 +963,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
         return Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
+            padding:
+                const EdgeInsets.symmetric(
               vertical: 20,
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints:
+                  const BoxConstraints(
                 maxWidth: 550,
               ),
               child: Column(
                 mainAxisAlignment:
                     MainAxisAlignment.center,
                 children: [
-                  // ------------------------------------------------
-                  // ICON
-                  // ------------------------------------------------
-
                   Container(
                     width: isTablet ? 76 : 68,
                     height: isTablet ? 76 : 68,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8FF),
+                      color:
+                          const Color(0xFFE8F8FF),
                       borderRadius:
                           BorderRadius.circular(22),
                     ),
@@ -695,16 +995,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                   const SizedBox(height: 18),
 
-                  // ------------------------------------------------
-                  // TITLE
-                  // ------------------------------------------------
-
                   Text(
                     'Scannez le QR Code',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: isTablet ? 28 : 24,
-                      fontWeight: FontWeight.w800,
+                      fontSize:
+                          isTablet ? 28 : 24,
+                      fontWeight:
+                          FontWeight.w800,
                       color:
                           const Color(0xFF111827),
                     ),
@@ -712,35 +1010,31 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                   const SizedBox(height: 9),
 
-                  // ------------------------------------------------
-                  // DESCRIPTION
-                  // ------------------------------------------------
-
                   const Padding(
-                    padding: EdgeInsets.symmetric(
+                    padding:
+                        EdgeInsets.symmetric(
                       horizontal: 24,
                     ),
                     child: Text(
                       'Scannez ce QR Code avec votre téléphone pour effectuer votre pointage.',
-                      textAlign: TextAlign.center,
+                      textAlign:
+                          TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
                         height: 1.5,
-                        color: Color(0xFF64748B),
+                        color:
+                            Color(0xFF64748B),
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 28),
 
-                  // ------------------------------------------------
-                  // QR
-                  // ------------------------------------------------
-
                   Container(
                     width: qrSize,
                     height: qrSize,
-                    padding: const EdgeInsets.all(20),
+                    padding:
+                        const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius:
@@ -761,35 +1055,92 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         ),
                       ],
                     ),
-                    child: QrImageView(
-                      data: _kioskQrValue,
-                      version: QrVersions.auto,
-                      size: qrSize - 40,
-                      backgroundColor:
-                          Colors.white,
-                      eyeStyle:
-                          const QrEyeStyle(
-                        eyeShape:
-                            QrEyeShape.square,
-                        color:
-                            Color(0xFF111827),
-                      ),
-                      dataModuleStyle:
-                          const QrDataModuleStyle(
-                        dataModuleShape:
-                            QrDataModuleShape
-                                .square,
-                        color:
-                            Color(0xFF111827),
-                      ),
-                    ),
+                    child: _kioskQrValue.isEmpty
+                        ? Column(
+                            mainAxisAlignment:
+                                MainAxisAlignment
+                                    .center,
+                            children: [
+                              const Icon(
+                                Icons
+                                    .qr_code_rounded,
+                                size: 64,
+                                color:
+                                    Color(0xFFCBD5E1),
+                              ),
+
+                              const SizedBox(
+                                height: 16,
+                              ),
+
+                              const Text(
+                                'QR de pointage',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight:
+                                      FontWeight
+                                          .w700,
+                                  color:
+                                      Color(
+                                    0xFF475569,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(
+                                height: 8,
+                              ),
+
+                              Padding(
+                                padding:
+                                    const EdgeInsets
+                                        .symmetric(
+                                  horizontal: 20,
+                                ),
+                                child: Text(
+                                  _loadingKiosk
+                                      ? 'Chargement du kiosque...'
+                                      : 'Génération du QR de pointage...',
+                                  textAlign:
+                                      TextAlign.center,
+                                  style:
+                                      const TextStyle(
+                                    fontSize: 13,
+                                    color:
+                                        Color(
+                                      0xFF94A3B8,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : QrImageView(
+                            data: _kioskQrValue,
+                            version:
+                                QrVersions.auto,
+                            size: qrSize - 40,
+                            backgroundColor:
+                                Colors.white,
+                            eyeStyle:
+                                const QrEyeStyle(
+                              eyeShape:
+                                  QrEyeShape.square,
+                              color:
+                                  Color(0xFF111827),
+                            ),
+                            dataModuleStyle:
+                                const QrDataModuleStyle(
+                              dataModuleShape:
+                                  QrDataModuleShape
+                                      .square,
+                              color:
+                                  Color(0xFF111827),
+                            ),
+                          ),
                   ),
 
                   const SizedBox(height: 22),
-
-                  // ------------------------------------------------
-                  // INSTRUCTION
-                  // ------------------------------------------------
 
                   Container(
                     padding:
@@ -814,7 +1165,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           color:
                               Color(0xFF16A34A),
                         ),
+
                         SizedBox(width: 8),
+
                         Flexible(
                           child: Text(
                             'Scannez avec votre téléphone',
@@ -865,26 +1218,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
         return Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
+            padding:
+                const EdgeInsets.symmetric(
               vertical: 16,
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints:
+                  const BoxConstraints(
                 maxWidth: 600,
               ),
               child: Column(
                 mainAxisAlignment:
                     MainAxisAlignment.center,
                 children: [
-                  // ------------------------------------------------
-                  // ICON
-                  // ------------------------------------------------
-
                   Container(
                     width: isTablet ? 68 : 60,
                     height: isTablet ? 68 : 60,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE8F8FF),
+                      color:
+                          const Color(0xFFE8F8FF),
                       borderRadius:
                           BorderRadius.circular(20),
                     ),
@@ -898,16 +1250,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                   const SizedBox(height: 16),
 
-                  // ------------------------------------------------
-                  // TITLE
-                  // ------------------------------------------------
-
                   Text(
                     'Présentez votre QR Code',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: isTablet ? 27 : 23,
-                      fontWeight: FontWeight.w800,
+                      fontSize:
+                          isTablet ? 27 : 23,
+                      fontWeight:
+                          FontWeight.w800,
                       color:
                           const Color(0xFF111827),
                     ),
@@ -915,30 +1265,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                   const SizedBox(height: 9),
 
-                  // ------------------------------------------------
-                  // DESCRIPTION
-                  // ------------------------------------------------
-
                   const Padding(
-                    padding: EdgeInsets.symmetric(
+                    padding:
+                        EdgeInsets.symmetric(
                       horizontal: 25,
                     ),
                     child: Text(
                       'Présentez le QR Code de votre carte ou de votre téléphone devant la caméra.',
-                      textAlign: TextAlign.center,
+                      textAlign:
+                          TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
                         height: 1.5,
-                        color: Color(0xFF64748B),
+                        color:
+                            Color(0xFF64748B),
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 25),
-
-                  // ------------------------------------------------
-                  // CAMERA
-                  // ------------------------------------------------
 
                   Container(
                     width: scanSize,
@@ -971,7 +1316,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               _onDetectEmployeeQr,
                         ),
 
-                        // Overlay sombre.
                         IgnorePointer(
                           child: CustomPaint(
                             painter:
@@ -979,7 +1323,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           ),
                         ),
 
-                        // Cadre QR.
                         Center(
                           child: IgnorePointer(
                             child: SizedBox(
@@ -987,8 +1330,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   scanSize * .70,
                               height:
                                   scanSize * .70,
-                              child:
-                                  CustomPaint(
+                              child: CustomPaint(
                                 painter:
                                     _QrCornersPainter(),
                               ),
@@ -996,17 +1338,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           ),
                         ),
 
-                        // Loading.
                         if (_isProcessing)
                           Container(
                             color: Colors.black
                                 .withValues(
                               alpha: .60,
                             ),
-                            child: const Center(
+                            child:
+                                const Center(
                               child:
                                   CircularProgressIndicator(
-                                color: Color(
+                                color:
+                                    Color(
                                   0xFF20C4F4,
                                 ),
                               ),
@@ -1017,10 +1360,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ),
 
                   const SizedBox(height: 20),
-
-                  // ------------------------------------------------
-                  // STATUS
-                  // ------------------------------------------------
 
                   Container(
                     padding:
@@ -1048,7 +1387,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           color:
                               Color(0xFF20C4F4),
                         ),
+
                         SizedBox(width: 8),
+
                         Text(
                           'Lecture automatique',
                           style: TextStyle(
@@ -1080,63 +1421,122 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
+        padding:
+            const EdgeInsets.symmetric(
           vertical: 20,
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
+          constraints:
+              const BoxConstraints(
             maxWidth: 430,
           ),
           child: Column(
             children: [
-              // ------------------------------------------------
-              // ICON
-              // ------------------------------------------------
-
               Container(
                 width: 68,
                 height: 68,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F8FF),
+                  color:
+                      const Color(0xFFE8F8FF),
                   borderRadius:
                       BorderRadius.circular(22),
                 ),
                 child: const Icon(
                   Icons.pin_rounded,
                   size: 38,
-                  color: Color(0xFF20C4F4),
+                  color:
+                      Color(0xFF20C4F4),
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // ------------------------------------------------
-              // TITLE
-              // ------------------------------------------------
-
               Text(
                 'Code PIN personnel',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: isTablet ? 26 : 23,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF111827),
+                  fontSize:
+                      isTablet ? 26 : 23,
+                  fontWeight:
+                      FontWeight.w800,
+                  color:
+                      const Color(0xFF111827),
                 ),
               ),
 
               const SizedBox(height: 8),
 
               const Text(
-                'Entrez votre code PIN pour effectuer le pointage.',
+                'Entrez votre code employé et votre PIN pour effectuer le pointage.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.4,
-                  color: Color(0xFF64748B),
+                  color:
+                      Color(0xFF64748B),
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // ------------------------------------------------
+              // CODE EMPLOYE
+              // ------------------------------------------------
+
+              TextField(
+                controller:
+                    _employeeCodeController,
+                enabled: !_isProcessing,
+                textInputAction:
+                    TextInputAction.done,
+                textCapitalization:
+                    TextCapitalization.characters,
+                decoration: InputDecoration(
+                  hintText:
+                      'Code employé',
+                  prefixIcon:
+                      const Icon(
+                    Icons.badge_outlined,
+                    color:
+                        Color(0xFF64748B),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(18),
+                    borderSide:
+                        const BorderSide(
+                      color:
+                          Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  enabledBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(18),
+                    borderSide:
+                        const BorderSide(
+                      color:
+                          Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  focusedBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(18),
+                    borderSide:
+                        const BorderSide(
+                      color:
+                          Color(0xFF20C4F4),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
 
               // ------------------------------------------------
               // PIN DISPLAY
@@ -1164,11 +1564,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           _pinCode.length,
                           (_) => '•',
                         ).join(' '),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  textAlign:
+                      TextAlign.center,
+                  style:
+                      const TextStyle(
                     fontSize: 28,
                     letterSpacing: 6,
-                    fontWeight: FontWeight.w800,
+                    fontWeight:
+                        FontWeight.w800,
                     color:
                         Color(0xFF111827),
                   ),
@@ -1273,7 +1676,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         text,
         style: const TextStyle(
           fontSize: 22,
-          fontWeight: FontWeight.w700,
+          fontWeight:
+              FontWeight.w700,
         ),
       ),
     );
@@ -1307,9 +1711,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       margin: EdgeInsets.symmetric(
         horizontal: isTablet ? 40 : 16,
       ),
-      padding: const EdgeInsets.all(5),
+      padding:
+          const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color:
+            const Color(0xFF111827),
         borderRadius:
             BorderRadius.circular(22),
       ),
@@ -1336,7 +1742,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           Expanded(
             child: _buildModeButton(
               index: modePin,
-              icon: Icons.pin_rounded,
+              icon:
+                  Icons.pin_rounded,
               label: 'PIN',
             ),
           ),
@@ -1358,11 +1765,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _selectedMode == index;
 
     return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _changeMode(index),
+      behavior:
+          HitTestBehavior.opaque,
+      onTap: () =>
+          _changeMode(index),
       child: AnimatedContainer(
         duration:
-            const Duration(milliseconds: 220),
+            const Duration(
+          milliseconds: 220,
+        ),
         padding:
             const EdgeInsets.symmetric(
           vertical: 13,
@@ -1383,10 +1794,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               icon,
               size: 20,
               color: selected
-                  ? const Color(0xFF111827)
+                  ? const Color(
+                      0xFF111827,
+                    )
                   : Colors.white,
             ),
+
             const SizedBox(height: 5),
+
             Text(
               label,
               maxLines: 1,
@@ -1398,7 +1813,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     ? FontWeight.w700
                     : FontWeight.w500,
                 color: selected
-                    ? const Color(0xFF111827)
+                    ? const Color(
+                        0xFF111827,
+                      )
                     : Colors.white,
               ),
             ),
@@ -1461,8 +1878,7 @@ class _QrCornersPainter
       ..color = color
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
-      ..strokeCap =
-          StrokeCap.round;
+      ..strokeCap = StrokeCap.round;
 
     final path = Path();
 

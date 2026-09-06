@@ -1,6 +1,6 @@
 
-import 'package:attendance/models/employees/attendance_history_model.dart';
-import 'package:attendance/models/employees/employee_model.dart';
+import 'package:attendance/models/attendance_history_model.dart';
+import 'package:attendance/models/employee_model.dart';
 import 'package:attendance/services/employees/attendance_service.dart';
 import 'package:flutter/material.dart';
 

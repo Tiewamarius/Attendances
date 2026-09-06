@@ -1,8 +1,9 @@
 import 'package:attendance/console_page.dart';
 import 'package:attendance/auth/setup_admin_page.dart';
-import 'package:attendance/employesfolder/employee_console_page.dart'; 
+import 'package:attendance/employesfolder/employee_console_page.dart';
 import 'package:attendance/kioskfolder/attendance_screen.dart';
 import 'package:attendance/kioskfolder/kiosk_activation_page.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,11 +14,31 @@ import '../employesfolder/features/splash_page.dart';
 class AppRouter {
   AppRouter._();
 
+  // ============================================================
+  // HOME ROUTE
+  // ============================================================
+
   static Future<String?> getHomeRoute() async {
     final prefs = await SharedPreferences.getInstance();
 
     return prefs.getString('home_route');
   }
+
+  // ============================================================
+  // ORGANISATION ACTIVE
+  // ============================================================
+
+  static Future<bool> hasActiveOrganization() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final organization = prefs.getString('organization');
+
+    return organization != null && organization.isNotEmpty;
+  }
+
+  // ============================================================
+  // ROUTER
+  // ============================================================
 
   static final GoRouter router = GoRouter(
     debugLogDiagnostics: true,
@@ -27,15 +48,34 @@ class AppRouter {
     redirect: (context, state) async {
       final prefs = await SharedPreferences.getInstance();
 
+      // ========================================================
+      // AUTHENTIFICATION
+      // ========================================================
+
       final token = prefs.getString('token');
 
       final isLoggedIn =
-          token != null && token.isNotEmpty;
+          token != null && token.trim().isNotEmpty;
+
+      // ========================================================
+      // ORGANISATION ACTIVE
+      // ========================================================
+
+      final organizationJson =
+          prefs.getString('organization');
+
+      final hasOrganization =
+          organizationJson != null &&
+          organizationJson.trim().isNotEmpty;
+
+      // ========================================================
+      // LOCALISATION ACTUELLE
+      // ========================================================
 
       final location = state.matchedLocation;
 
       // ========================================================
-      // ROUTES
+      // ROUTES PUBLIQUES
       // ========================================================
 
       final isSplash = location == '/';
@@ -52,9 +92,11 @@ class AppRouter {
       // ========================================================
 
       if (!isLoggedIn) {
-        /*
-         * Ces pages sont accessibles sans authentification.
-         */
+        debugPrint(
+          '[ROUTER] Utilisateur non connecté.',
+        );
+
+        // Ces pages restent accessibles sans authentification.
         if (isSplash ||
             isLogin ||
             isSetup ||
@@ -62,10 +104,11 @@ class AppRouter {
           return null;
         }
 
-        /*
-         * Toutes les autres pages nécessitent
-         * une authentification.
-         */
+        // Toute autre route nécessite une connexion.
+        debugPrint(
+          '[ROUTER] Redirection vers /login',
+        );
+
         return '/login';
       }
 
@@ -73,165 +116,214 @@ class AppRouter {
       // UTILISATEUR CONNECTÉ
       // ========================================================
 
+      debugPrint(
+        '[ROUTER] Utilisateur connecté.',
+      );
+
+      debugPrint(
+        '[ROUTER] Organisation active : $hasOrganization',
+      );
+
+      // ========================================================
+      // SPLASH / LOGIN
+      // ========================================================
+
       if (isSplash || isLogin) {
         final home = await getHomeRoute();
+
+        debugPrint(
+          '[ROUTER] Home route sauvegardée : $home',
+        );
+
+        // ------------------------------------------------------
+        // Aucune organisation active
+        // ------------------------------------------------------
+
+        if (!hasOrganization) {
+          debugPrint(
+            '[ROUTER] Aucune organisation active.',
+          );
+
+          // Pour l'instant on revient sur la console admin.
+          // La sélection d'organisation pourra ensuite être
+          // ajoutée ici lorsque l'utilisateur possède plusieurs
+          // organisations.
+          return '/admin';
+        }
+
+        // ------------------------------------------------------
+        // Organisation active
+        // ------------------------------------------------------
 
         switch (home) {
           case 'admin':
             return '/admin';
 
-          case 'kiosk':
-            return '/kiosk';
-
           case 'employees':
             return '/employees';
 
-          case 'manager':
-            return '/dashboard';
+          case 'kiosk':
+            return '/kiosk';
 
           default:
-            return '/dashboard';
+            // Toute nouvelle connexion avec organisation active
+            // arrive par défaut sur l'administration.
+            return '/admin';
         }
       }
+
+      // ========================================================
+      // ROUTES PROTÉGÉES
+      // ========================================================
 
       return null;
     },
 
+    // ============================================================
+    // ROUTES
+    // ============================================================
+
     routes: [
-      // ========================================================
+
+      // ==========================================================
       // SPLASH
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
         path: '/',
         name: 'splash',
-        builder: (_, _) => const SplashPage(),
+        builder: (_, __) => const SplashPage(),
       ),
 
-      // ========================================================
+      // ==========================================================
       // LOGIN
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
         path: '/login',
         name: 'login',
-        builder: (_, _) => const LoginPage(),
+        builder: (_, __) => const LoginPage(),
       ),
 
-      // ========================================================
+      // ==========================================================
       // KIOSK LOGIN / ACTIVATION
       // PUBLIC
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
-        name: 'kiosk-login',
         path: '/kiosk/login',
+        name: 'kiosk-login',
         builder: (context, state) =>
             const KioskActivationPage(),
       ),
 
-      // ========================================================
+      // ==========================================================
       // KIOSK
       // PROTÉGÉ
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
-        name: 'kiosk',
         path: '/kiosk',
+        name: 'kiosk',
         builder: (context, state) =>
             const AttendanceScreen(),
       ),
 
-      // ========================================================
+      // ==========================================================
       // PREMIÈRE CONFIGURATION
       // PUBLIC
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
         path: '/setup/admin',
         name: 'setup-admin',
-        builder: (_, _) =>
+        builder: (_, __) =>
             const SetupAdminPage(),
       ),
 
-      // ========================================================
-      // ADMIN
+      // ==========================================================
+      // ADMIN / ORGANISATION
       // PROTÉGÉ
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
         path: '/admin',
         name: 'admin',
-        builder: (_, _) => const ConsolePage(),
+        builder: (_, __) =>
+            const ConsolePage(),
       ),
 
-      // ========================================================
-      // EMPLOYEES
+      // ==========================================================
+      // EMPLOYÉS
       // PROTÉGÉ
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
         path: '/employees',
         name: 'employees',
-        builder: (_, _) =>
+        builder: (_, __) =>
             const EmployeeConsolePage(),
       ),
 
-      // ========================================================
-      // ATTENDANCE
-      // ========================================================
+      // ==========================================================
+      // PRÉSENCES
+      // ==========================================================
 
       GoRoute(
         path: '/attendance',
         name: 'attendance',
-        builder: (_, _) =>
+        builder: (_, __) =>
             const Placeholder(),
       ),
 
-      // ========================================================
-      // LEAVES
-      // ========================================================
+      // ==========================================================
+      // CONGÉS
+      // ==========================================================
 
       GoRoute(
         path: '/leaves',
         name: 'leaves',
-        builder: (_, _) =>
+        builder: (_, __) =>
             const Placeholder(),
       ),
 
-      // ========================================================
+      // ==========================================================
       // PERMISSIONS
-      // ========================================================
+      // ==========================================================
 
       GoRoute(
         path: '/permissions',
         name: 'permissions',
-        builder: (_, _) =>
+        builder: (_, __) =>
             const Placeholder(),
       ),
 
-      // ========================================================
-      // REPORTS
-      // ========================================================
+      // ==========================================================
+      // RAPPORTS
+      // ==========================================================
 
       GoRoute(
         path: '/reports',
         name: 'reports',
-        builder: (_, _) =>
+        builder: (_, __) =>
             const Placeholder(),
       ),
 
-      // ========================================================
-      // PROFILE
-      // ========================================================
+      // ==========================================================
+      // PROFIL
+      // ==========================================================
 
       GoRoute(
         path: '/profile',
         name: 'profile',
-        builder: (_, _) =>
+        builder: (_, __) =>
             const Placeholder(),
       ),
     ],
+
+    // ============================================================
+    // ERREUR
+    // ============================================================
 
     errorBuilder: (context, state) {
       return Scaffold(

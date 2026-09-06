@@ -1,4 +1,4 @@
-import 'package:attendance/models/employees/employee_model.dart';
+import 'package:attendance/models/employee_model.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -86,7 +86,7 @@ class _EmployeeAttendancePageState extends State<EmployeeAttendancePage> {
   // ============================================================
 
   Widget _buildMyCard(EmployeeModel employee) {
-  final qrData = employee.qrToken;
+  final qrData = _qrDataFor(employee);
 
   return SingleChildScrollView(
     key: const ValueKey('card'),
@@ -216,6 +216,23 @@ class _EmployeeAttendancePageState extends State<EmployeeAttendancePage> {
     ),
   );
 }
+
+  String? _qrDataFor(EmployeeModel employee) {
+    final dynamic model = employee;
+
+    try {
+      final value = model.qrCode;
+      return value?.toString();
+    } on NoSuchMethodError {
+      try {
+        final value = model.qr_code;
+        return value?.toString();
+      } on NoSuchMethodError {
+        return null;
+      }
+    }
+  }
+
   // ============================================================
   // HEADER DE LA CARTE
   // ============================================================

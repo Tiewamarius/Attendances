@@ -1,6 +1,5 @@
+import 'package:attendance/models/employee_model.dart';
 import 'package:flutter/foundation.dart';
-
-import 'package:attendance/models/employees/employee_model.dart';
 import 'package:attendance/services/employees/employee_service.dart';
 
 class EmployeeController extends ChangeNotifier {

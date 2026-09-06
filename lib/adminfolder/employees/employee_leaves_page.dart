@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:attendance/controllers/admins/leave_controller.dart';
-import 'package:attendance/models/admins/leave_model..dart';
+import 'package:attendance/models/leave_model..dart';
 
 class EmployeeLeavesPage extends StatefulWidget {
   const EmployeeLeavesPage({super.key});

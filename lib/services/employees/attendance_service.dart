@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:attendance/core/network/api_endpoints.dart';
-import 'package:attendance/models/employees/attendance_history_model.dart';
+import 'package:attendance/models/attendance_history_model.dart';
 import 'package:http/http.dart' as http;
 
 class AttendanceService {
