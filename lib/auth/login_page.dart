@@ -14,23 +14,30 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // ========================================================================
+  // ==========================================================================
   // CONTROLLERS
-  // ========================================================================
+  // ==========================================================================
 
-  final loginController = TextEditingController();
-  final passwordController = TextEditingController();
+  final TextEditingController loginController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
-  // ========================================================================
+  // ==========================================================================
   // STATE
-  // ========================================================================
+  // ==========================================================================
 
   bool obscurePassword = true;
   bool loading = false;
 
-  // ========================================================================
+  // ==========================================================================
+  // CONSTANTS
+  // ==========================================================================
+
+  static const Color _primaryColor = Color(0xFF0F172A);
+  static const Color _backgroundColor = Color(0xFFF8FAFC);
+
+  // ==========================================================================
   // DISPOSE
-  // ========================================================================
+  // ==========================================================================
 
   @override
   void dispose() {
@@ -39,17 +46,17 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // ========================================================================
+  // ==========================================================================
   // LOGIN
-  // ========================================================================
+  // ==========================================================================
 
   Future<void> _login() async {
     final login = loginController.text.trim();
     final password = passwordController.text;
 
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------------------
     // VALIDATION
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------------------
 
     if (login.isEmpty || password.isEmpty) {
       _showMessage(
@@ -61,27 +68,20 @@ class _LoginPageState extends State<LoginPage> {
 
     FocusScope.of(context).unfocus();
 
-    setState(() {
-      loading = true;
-    });
+    if (mounted) {
+      setState(() {
+        loading = true;
+      });
+    }
 
     try {
-      // ====================================================================
-      // API
-      // ====================================================================
+      // ========================================================================
+      // API LOGIN
+      // ========================================================================
 
-      final url = ApiConfig.login;
-
-      debugPrint('');
-      debugPrint('======================================================');
-      debugPrint('                    LOGIN START                       ');
-      debugPrint('======================================================');
-      debugPrint('LOGIN SAISI : $login');
-      debugPrint('URL API     : $url');
-      debugPrint('======================================================');
 
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(ApiConfig.login),
         headers: const {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -92,97 +92,45 @@ class _LoginPageState extends State<LoginPage> {
         }),
       );
 
-      // ====================================================================
-      // RESPONSE API
-      // ====================================================================
+      // ========================================================================
+      // PARSE RESPONSE
+      // ========================================================================
 
       debugPrint('');
       debugPrint('================ API RESPONSE =================');
       debugPrint('STATUS CODE : ${response.statusCode}');
-      debugPrint('BODY :');
-      debugPrint(response.body);
+      debugPrint('BODY : ${response.body}');
       debugPrint('===============================================');
 
-      // ====================================================================
-      // PARSE RESPONSE
-      // ====================================================================
+      final body = _parseResponse(response.body);
 
-      Map<String, dynamic> body = {};
-
-      if (response.body.isNotEmpty) {
-        try {
-          final decoded = jsonDecode(response.body);
-
-          debugPrint('');
-          debugPrint('================ JSON =================');
-          debugPrint('JSON TYPE : ${decoded.runtimeType}');
-          debugPrint('=======================================');
-
-          if (decoded is Map) {
-            body = Map<String, dynamic>.from(decoded);
-          }
-        } catch (e) {
-          debugPrint('');
-          debugPrint('ERREUR JSON : $e');
-
-          throw Exception(
-            'La réponse du serveur n\'est pas un JSON valide.',
-          );
-        }
-      }
-
-      // ====================================================================
-      // ERROR HTTP
-      // ====================================================================
+      // ========================================================================
+      // HTTP ERROR
+      // ========================================================================
 
       if (response.statusCode != 200) {
-        final message =
-            body['message']?.toString() ??
-            'Identifiants incorrects.';
-
-        debugPrint('');
-        debugPrint(
-          '================ LOGIN ERROR HTTP ================',
+        throw Exception(
+          body['message']?.toString() ??
+              'Identifiants incorrects.',
         );
-        debugPrint('STATUS  : ${response.statusCode}');
-        debugPrint('MESSAGE : $message');
-        debugPrint(
-          '===================================================',
-        );
-
-        throw Exception(message);
       }
 
-      // ====================================================================
-      // STATUS API
-      // ====================================================================
+      // ========================================================================
+      // API STATUS
+      // ========================================================================
 
-      final apiStatus = body['status'];
-
-      debugPrint('');
-      debugPrint('================ API STATUS =================');
-      debugPrint('STATUS : $apiStatus');
-      debugPrint('MESSAGE : ${body['message']}');
-      debugPrint('==============================================');
-
-      if (apiStatus == false) {
+      if (body['status'] != true) {
         throw Exception(
           body['message']?.toString() ??
               'Connexion refusée.',
         );
       }
 
-      // ====================================================================
+      // ========================================================================
       // DATA
-      // ====================================================================
+      // ========================================================================
 
       final rawData = body['data'];
-
-      debugPrint('');
-      debugPrint('================ DATA =================');
-      debugPrint('DATA : $rawData');
-      debugPrint('TYPE : ${rawData.runtimeType}');
-      debugPrint('========================================');
 
       if (rawData is! Map) {
         throw Exception(
@@ -192,28 +140,14 @@ class _LoginPageState extends State<LoginPage> {
 
       final data = Map<String, dynamic>.from(rawData);
 
-      // ====================================================================
+      // ========================================================================
       // TOKEN
-      // ====================================================================
+      // ========================================================================
 
       final rawToken = data['token'];
 
-      debugPrint('');
-      debugPrint('================ TOKEN =================');
-      debugPrint('TOKEN PRESENT : ${rawToken != null}');
-      debugPrint('TOKEN TYPE    : ${rawToken.runtimeType}');
-
-      if (rawToken != null) {
-        final tokenString = rawToken.toString();
-
-        debugPrint(
-          'TOKEN : ${tokenString.length > 20 ? '${tokenString.substring(0, 20)}...' : tokenString}',
-        );
-      }
-
-      debugPrint('========================================');
-
-      if (rawToken == null) {
+      if (rawToken == null ||
+          rawToken.toString().trim().isEmpty) {
         throw Exception(
           'Token d’authentification manquant.',
         );
@@ -221,23 +155,13 @@ class _LoginPageState extends State<LoginPage> {
 
       final token = rawToken.toString().trim();
 
-      if (token.isEmpty) {
-        throw Exception(
-          'Token d’authentification invalide.',
-        );
-      }
+      debugPrint('TOKEN PRESENT : true');
 
-      // ====================================================================
+      // ========================================================================
       // USER
-      // ====================================================================
+      // ========================================================================
 
       final rawUser = data['user'];
-
-      debugPrint('');
-      debugPrint('================ USER =================');
-      debugPrint('USER : $rawUser');
-      debugPrint('TYPE : ${rawUser.runtimeType}');
-      debugPrint('=======================================');
 
       if (rawUser is! Map) {
         throw Exception(
@@ -247,488 +171,153 @@ class _LoginPageState extends State<LoginPage> {
 
       final user = Map<String, dynamic>.from(rawUser);
 
-      // ====================================================================
+      // ========================================================================
       // ORGANIZATIONS
-      // ====================================================================
+      // ========================================================================
 
-      final rawOrganizations = data['organizations'];
-
-      debugPrint('');
-      debugPrint(
-        '================ ORGANIZATIONS =================',
+      final organizations = _extractOrganizations(
+        data['organizations'],
       );
-      debugPrint(
-        'ORGANIZATIONS : $rawOrganizations',
-      );
-      debugPrint(
-        'TYPE : ${rawOrganizations.runtimeType}',
-      );
-      debugPrint(
-        '===============================================',
-      );
-
-      if (rawOrganizations is! List) {
-        throw Exception(
-          'La liste des organisations est absente.',
-        );
-      }
-
-      if (rawOrganizations.isEmpty) {
-        throw Exception(
-          'Aucune organisation associée à cet utilisateur.',
-        );
-      }
-
-      // ====================================================================
-      // ORGANISATIONS VALIDES
-      // ====================================================================
-
-      final organizations = <Map<String, dynamic>>[];
-
-      for (final item in rawOrganizations) {
-        if (item is Map) {
-          organizations.add(
-            Map<String, dynamic>.from(item),
-          );
-        }
-      }
 
       if (organizations.isEmpty) {
         throw Exception(
-          'Aucune organisation valide trouvée.',
+          'Aucune organisation active associée à cet utilisateur.',
         );
       }
 
       debugPrint('');
+      debugPrint('================ ORGANIZATIONS =================');
       debugPrint(
-        'NOMBRE D\'ORGANISATIONS : ${organizations.length}',
+        'NOMBRE : ${organizations.length}',
       );
 
       for (final organization in organizations) {
         debugPrint(
-          ' - ID=${organization['id']} '
+          'ID=${organization['id']} '
           'NAME=${organization['name']} '
           'SLUG=${organization['slug']}',
         );
       }
 
-      // ====================================================================
-      // ORGANISATION ACTIVE
-      // ====================================================================
+      debugPrint('===============================================');
 
-      /*
-       * Pour le moment :
-       *
-       * - 1 organisation  => elle devient automatiquement active
-       * - plusieurs       => première organisation temporairement active
-       *
-       * La sélection d'organisation pourra ensuite être ajoutée
-       * sans modifier le fonctionnement du login.
-       */
-
-      final organization = organizations.first;
-
-      debugPrint('');
-      debugPrint(
-        '================ ORGANISATION ACTIVE ================',
-      );
-      debugPrint(
-        'ID   : ${organization['id']}',
-      );
-      debugPrint(
-        'NAME : ${organization['name']}',
-      );
-      debugPrint(
-        'SLUG : ${organization['slug']}',
-      );
-      debugPrint(
-        '======================================================',
-      );
-
-      // ====================================================================
+      // ========================================================================
       // EMPLOYEE
-      // ====================================================================
+      // ========================================================================
 
-      final employee = data['employee'];
-
-      debugPrint('');
-      debugPrint('================ EMPLOYEE =================');
-      debugPrint('EMPLOYEE : $employee');
-      debugPrint('TYPE     : ${employee.runtimeType}');
-      debugPrint('===========================================');
-
-      // ====================================================================
-      // ROLES
-      // ====================================================================
-
-      /*
-       * IMPORTANT :
-       *
-       * Le endpoint LOGIN actuel ne retourne pas les rôles.
-       *
-       * Exemple actuel :
-       *
-       * data = {
-       *   token,
-       *   user,
-       *   organizations,
-       *   employee
-       * }
-       *
-       * Les rôles et permissions devront être récupérés depuis
-       * l'endpoint de profil/dashboard de l'organisation.
-       */
-
-      final rawRoles = data['roles'];
-
-      debugPrint('');
-      debugPrint('================ ROLES =================');
-      debugPrint('ROLES : $rawRoles');
-      debugPrint('TYPE  : ${rawRoles.runtimeType}');
-      debugPrint('========================================');
-
-      final roles = <String>[];
-
-      if (rawRoles is List) {
-        for (final role in rawRoles) {
-          if (role is String) {
-            final value = role.trim();
-
-            if (value.isNotEmpty) {
-              roles.add(value);
-            }
-          } else if (role is Map) {
-            final map = Map<String, dynamic>.from(role);
-
-            final value =
-                map['name'] ??
-                map['role'] ??
-                map['slug'];
-
-            if (value is String &&
-                value.trim().isNotEmpty) {
-              roles.add(value.trim());
-            }
-          }
-        }
-      }
-
-      final uniqueRoles = roles.toSet().toList();
-
-      debugPrint(
-        'ROLES FINAUX : $uniqueRoles',
+      final employee = _extractMap(
+        data['employee'],
       );
 
-      // ====================================================================
-      // PERMISSIONS
-      // ====================================================================
+      // ========================================================================
+      // SAVE BASIC SESSION
+      // ========================================================================
+      //
+      // On sauvegarde déjà le token et l'utilisateur.
+      //
+      // MAIS si plusieurs organisations existent, on ne sauvegarde PAS encore
+      // d'organisation active, de rôle ou de permissions.
+      //
+      // Cela évite de considérer la session comme complètement initialisée.
+      // ========================================================================
 
-      final rawPermissions = data['permissions'];
-
-      final permissions = <String>[];
-
-      if (rawPermissions is List) {
-        for (final permission in rawPermissions) {
-          if (permission is String &&
-              permission.trim().isNotEmpty) {
-            permissions.add(
-              permission.trim(),
-            );
-          }
-        }
-      }
-
-      debugPrint('');
-      debugPrint(
-        '================ PERMISSIONS =================',
-      );
-      debugPrint(
-        'PERMISSIONS : $permissions',
-      );
-      debugPrint(
-        '===============================================',
-      );
-
-      // ====================================================================
-      // SHARED PREFERENCES
-      // ====================================================================
-
-      final prefs =
-          await SharedPreferences.getInstance();
-
-      debugPrint('');
-      debugPrint(
-        '================ SAVE SESSION =================',
-      );
-
-      // --------------------------------------------------------------------
-      // TOKEN
-      // --------------------------------------------------------------------
+      final prefs = await SharedPreferences.getInstance();
 
       await prefs.setString(
         'token',
         token,
       );
 
-      debugPrint(
-        'TOKEN SAUVEGARDÉ : '
-        '${prefs.getString('token') != null}',
-      );
-
-      // --------------------------------------------------------------------
-      // USER
-      // --------------------------------------------------------------------
-
       await prefs.setString(
         'user',
         jsonEncode(user),
       );
-
-      debugPrint(
-        'USER SAUVEGARDÉ : '
-        '${prefs.getString('user')}',
-      );
-
-      // --------------------------------------------------------------------
-      // ORGANISATION ACTIVE
-      // --------------------------------------------------------------------
-
-      await prefs.setString(
-        'organization',
-        jsonEncode(organization),
-      );
-
-      debugPrint(
-        'ORGANISATION ACTIVE SAUVEGARDÉE : '
-        '${prefs.getString('organization')}',
-      );
-
-      // --------------------------------------------------------------------
-      // TOUTES LES ORGANISATIONS
-      // --------------------------------------------------------------------
 
       await prefs.setString(
         'organizations',
         jsonEncode(organizations),
       );
 
-      debugPrint(
-        'ORGANISATIONS SAUVEGARDÉES : '
-        '${prefs.getString('organizations')}',
-      );
-
-      // --------------------------------------------------------------------
-      // ORGANISATION ID
-      // --------------------------------------------------------------------
-
-      if (organization['id'] != null) {
-        await prefs.setString(
-          'organization_id',
-          organization['id'].toString(),
-        );
-      }
-
-      debugPrint(
-        'ORGANIZATION ID : '
-        '${prefs.getString('organization_id')}',
-      );
-
-      // --------------------------------------------------------------------
-      // ORGANISATION SLUG
-      // --------------------------------------------------------------------
-
-      if (organization['slug'] != null) {
-        await prefs.setString(
-          'organization_slug',
-          organization['slug'].toString(),
-        );
-      }
-
-      debugPrint(
-        'ORGANIZATION SLUG : '
-        '${prefs.getString('organization_slug')}',
-      );
-
-      // --------------------------------------------------------------------
-      // ROLES
-      // --------------------------------------------------------------------
-
-      await prefs.setString(
-        'roles',
-        jsonEncode(uniqueRoles),
-      );
-
-      debugPrint(
-        'ROLES SAUVEGARDÉS : '
-        '${prefs.getString('roles')}',
-      );
-
-      // --------------------------------------------------------------------
-      // PERMISSIONS
-      // --------------------------------------------------------------------
-
-      await prefs.setString(
-        'permissions',
-        jsonEncode(permissions),
-      );
-
-      debugPrint(
-        'PERMISSIONS SAUVEGARDÉES : '
-        '${prefs.getString('permissions')}',
-      );
-
-      // --------------------------------------------------------------------
-      // EMPLOYEE
-      // --------------------------------------------------------------------
-
-      if (employee is Map) {
+      if (employee != null) {
         await prefs.setString(
           'employee',
-          jsonEncode(
-            Map<String, dynamic>.from(employee),
-          ),
-        );
-
-        debugPrint(
-          'EMPLOYEE SAUVEGARDÉ : '
-          '${prefs.getString('employee')}',
+          jsonEncode(employee),
         );
       } else {
         await prefs.remove('employee');
-
-        debugPrint(
-          'EMPLOYEE : aucun employee sauvegardé.',
-        );
       }
 
-      debugPrint(
-        '================================================',
-      );
+      // ========================================================================
+      // VERIFICATION MULTI-ORGANISATION
+      // ========================================================================
 
-      // ====================================================================
-      // HOME ROUTE
-      // ====================================================================
-
-      /*
-       * IMPORTANT :
-       *
-       * Le LOGIN actuel ne retourne pas les rôles.
-       *
-       * Donc nous ne pouvons pas encore déterminer correctement
-       * la page d'accueil à partir du rôle.
-       *
-       * Pour ton architecture actuelle :
-       *
-       * organisation active
-       *        ↓
-       *      /admin
-       *
-       * Le rôle réel sera récupéré ensuite depuis l'API
-       * de l'organisation.
-       */
-
-      const homeRoute = 'admin';
-
-      await prefs.setString(
-        'home_route',
-        homeRoute,
-      );
+      final requiresOrganizationSelection =
+          data['requires_organization_selection'] == true;
 
       debugPrint('');
+      debugPrint('================ ORGANIZATION MODE =============');
       debugPrint(
-        '================ HOME ROUTE =================',
+        'REQUIRES SELECTION : $requiresOrganizationSelection',
       );
       debugPrint(
-        'HOME ROUTE : $homeRoute',
+        'COUNT              : ${organizations.length}',
       );
-      debugPrint(
-        'HOME ROUTE PREFS : '
-        '${prefs.getString('home_route')}',
-      );
-      debugPrint(
-        '==============================================',
-      );
+      debugPrint('===============================================');
 
-      // ====================================================================
-      // SESSION DEBUG
-      // ====================================================================
+      // ========================================================================
+      // CAS 1 : PLUSIEURS ORGANISATIONS
+      // ========================================================================
 
-      debugPrint('');
-      debugPrint(
-        '================ SESSION =================',
-      );
-      debugPrint(
-        'AUTHENTIFIÉ      : ${prefs.getString('token') != null}',
-      );
-      debugPrint(
-        'USER             : ${prefs.getString('user') != null}',
-      );
-      debugPrint(
-        'ORGANISATION     : ${prefs.getString('organization') != null}',
-      );
-      debugPrint(
-        'ORGANISATIONS    : ${prefs.getString('organizations') != null}',
-      );
-      debugPrint(
-        'ORGANISATION ID  : ${prefs.getString('organization_id')}',
-      );
-      debugPrint(
-        'ORGANISATION SLUG: ${prefs.getString('organization_slug')}',
-      );
-      debugPrint(
-        'ROLES            : ${prefs.getString('roles')}',
-      );
-      debugPrint(
-        'PERMISSIONS      : ${prefs.getString('permissions')}',
-      );
-      debugPrint(
-        'HOME ROUTE       : ${prefs.getString('home_route')}',
-      );
-      debugPrint(
-        '============================================',
-      );
+      if (requiresOrganizationSelection ||
+          organizations.length > 1) {
+        await _prepareOrganizationSelection(prefs);
 
-      // ====================================================================
-      // REDIRECTION
-      // ====================================================================
+        if (!mounted) {
+          return;
+        }
 
-      if (!mounted) {
-        debugPrint(
-          'WIDGET NON MOUNTED : redirection annulée.',
+        await _showOrganizationSelection(
+          token: token,
+          organizations: organizations,
         );
+
         return;
       }
 
-      debugPrint('');
-      debugPrint(
-        '================ REDIRECTION =================',
-      );
-      debugPrint(
-        'GO NAMED : admin',
-      );
-      debugPrint(
-        '==============================================',
-      );
+      // ========================================================================
+      // CAS 2 : UNE SEULE ORGANISATION
+      // ========================================================================
 
-      context.goNamed('admin');
+      final rawOrganization = data['organization'];
+
+      Map<String, dynamic> organization;
+
+      if (rawOrganization is Map) {
+        organization = Map<String, dynamic>.from(
+          rawOrganization,
+        );
+      } else {
+        organization = organizations.first;
+      }
+
+      await _completeLogin(
+        prefs: prefs,
+        token: token,
+        organization: organization,
+        roles: _extractRoles(data['roles']),
+        permissions: _extractPermissions(
+          data['permissions'],
+        ),
+      );
     } catch (e) {
       debugPrint('');
-      debugPrint(
-        '================ LOGIN EXCEPTION ================',
-      );
-      debugPrint(
-        'ERREUR : $e',
-      );
-      debugPrint(
-        '==================================================',
-      );
+      debugPrint('================ LOGIN ERROR ==================');
+      debugPrint('ERROR : $e');
+      debugPrint('===============================================');
 
       if (mounted) {
         _showMessage(
-          e.toString().replaceFirst(
-            'Exception: ',
-            '',
-          ),
+          _cleanExceptionMessage(e),
           isError: true,
         );
       }
@@ -741,23 +330,723 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // ========================================================================
-  // REDIRECTION
-  // ========================================================================
+  // ==========================================================================
+  // PARSE RESPONSE
+  // ==========================================================================
 
-  void _redirectAfterLogin(String route) {
+  Map<String, dynamic> _parseResponse(String responseBody) {
+    if (responseBody.trim().isEmpty) {
+      throw Exception(
+        'Le serveur a retourné une réponse vide.',
+      );
+    }
+
+    try {
+      final decoded = jsonDecode(responseBody);
+
+      if (decoded is! Map) {
+        throw Exception(
+          'La réponse du serveur n’est pas valide.',
+        );
+      }
+
+      return Map<String, dynamic>.from(decoded);
+    } catch (e) {
+      if (e is Exception &&
+          e.toString().contains('La réponse')) {
+        rethrow;
+      }
+
+      throw Exception(
+        'La réponse du serveur n’est pas un JSON valide.',
+      );
+    }
+  }
+
+  // ==========================================================================
+  // EXTRACT MAP
+  // ==========================================================================
+
+  Map<String, dynamic>? _extractMap(dynamic value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+
+    return null;
+  }
+
+  // ==========================================================================
+  // EXTRACT ORGANIZATIONS
+  // ==========================================================================
+
+  List<Map<String, dynamic>> _extractOrganizations(
+    dynamic rawOrganizations,
+  ) {
+    if (rawOrganizations is! List) {
+      return [];
+    }
+
+    final organizations = <Map<String, dynamic>>[];
+
+    for (final item in rawOrganizations) {
+      if (item is Map) {
+        final organization =
+            Map<String, dynamic>.from(item);
+
+        if (organization['id'] != null) {
+          organizations.add(organization);
+        }
+      }
+    }
+
+    return organizations;
+  }
+
+  // ==========================================================================
+  // EXTRACT ROLES
+  // ==========================================================================
+
+  List<String> _extractRoles(dynamic rawRoles) {
+    final roles = <String>[];
+
+    if (rawRoles is! List) {
+      return roles;
+    }
+
+    for (final role in rawRoles) {
+      if (role is String) {
+        final value = role.trim();
+
+        if (value.isNotEmpty) {
+          roles.add(value);
+        }
+      } else if (role is Map) {
+        final map = Map<String, dynamic>.from(role);
+
+        final value =
+            map['name'] ??
+            map['role'] ??
+            map['slug'];
+
+        if (value is String) {
+          final roleName = value.trim();
+
+          if (roleName.isNotEmpty) {
+            roles.add(roleName);
+          }
+        }
+      }
+    }
+
+    return roles.toSet().toList();
+  }
+
+  // ==========================================================================
+  // EXTRACT PERMISSIONS
+  // ==========================================================================
+
+  List<String> _extractPermissions(
+    dynamic rawPermissions,
+  ) {
+    final permissions = <String>[];
+
+    if (rawPermissions is! List) {
+      return permissions;
+    }
+
+    for (final permission in rawPermissions) {
+      if (permission is String) {
+        final value = permission.trim();
+
+        if (value.isNotEmpty) {
+          permissions.add(value);
+        }
+      } else if (permission is Map) {
+        final map = Map<String, dynamic>.from(
+          permission,
+        );
+
+        final value =
+            map['name'] ??
+            map['permission'] ??
+            map['slug'];
+
+        if (value is String) {
+          final permissionName = value.trim();
+
+          if (permissionName.isNotEmpty) {
+            permissions.add(permissionName);
+          }
+        }
+      }
+    }
+
+    return permissions.toSet().toList();
+  }
+
+  // ==========================================================================
+  // PREPARE ORGANIZATION SELECTION
+  // ==========================================================================
+
+  Future<void> _prepareOrganizationSelection(
+    SharedPreferences prefs,
+  ) async {
+    await prefs.remove('organization');
+    await prefs.remove('organization_id');
+    await prefs.remove('organization_slug');
+    await prefs.remove('roles');
+    await prefs.remove('permissions');
+    await prefs.remove('home_route');
+  }
+
+  // ==========================================================================
+  // ORGANIZATION SELECTION
+  // ==========================================================================
+
+  Future<void> _showOrganizationSelection({
+    required String token,
+    required List<Map<String, dynamic>> organizations,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+
+    final selectedOrganization =
+        await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(
+                Icons.business_rounded,
+                color: _primaryColor,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Choisir une organisation',
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: organizations.length,
+              separatorBuilder: (_, __) {
+                return const SizedBox(height: 8);
+              },
+              itemBuilder: (context, index) {
+                final organization =
+                    organizations[index];
+
+                final name =
+                    organization['name']
+                            ?.toString()
+                            .trim()
+                            .isNotEmpty ==
+                        true
+                        ? organization['name']
+                              .toString()
+                        : 'Organisation';
+
+                final slug =
+                    organization['slug']
+                        ?.toString()
+                        .trim();
+
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius:
+                        BorderRadius.circular(14),
+                    onTap: () {
+                      Navigator.of(dialogContext)
+                          .pop(organization);
+                    },
+                    child: Container(
+                      padding:
+                          const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color:
+                            const Color(0xFFF8FAFC),
+                        border: Border.all(
+                          color:
+                              const Color(0xFFE2E8F0),
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  _primaryColor,
+                              borderRadius:
+                                  BorderRadius.circular(
+                                12,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.business_rounded,
+                              color: Colors.white,
+                              size: 23,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow:
+                                      TextOverflow
+                                          .ellipsis,
+                                  style:
+                                      const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight:
+                                        FontWeight.w700,
+                                    color:
+                                        _primaryColor,
+                                  ),
+                                ),
+                                if (slug != null &&
+                                    slug.isNotEmpty) ...[
+                                  const SizedBox(
+                                    height: 4,
+                                  ),
+                                  Text(
+                                    slug,
+                                    maxLines: 1,
+                                    overflow:
+                                        TextOverflow
+                                            .ellipsis,
+                                    style:
+                                        const TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          Color(
+                                        0xFF64748B,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons
+                                .arrow_forward_ios_rounded,
+                            size: 16,
+                            color:
+                                Color(0xFF64748B),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: loading
+                  ? null
+                  : () {
+                      Navigator.of(dialogContext)
+                          .pop();
+                    },
+              child: const Text(
+                'Annuler',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedOrganization == null) {
+      /*
+       * L'utilisateur a annulé.
+       *
+       * Le token de base a été sauvegardé temporairement,
+       * mais la session n'est pas complète.
+       */
+      final prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.remove('token');
+      await prefs.remove('user');
+      await prefs.remove('organizations');
+      await prefs.remove('employee');
+      await prefs.remove('organization');
+      await prefs.remove('organization_id');
+      await prefs.remove('organization_slug');
+      await prefs.remove('roles');
+      await prefs.remove('permissions');
+      await prefs.remove('home_route');
+
+      return;
+    }
+
+    final organizationId =
+        selectedOrganization['id'];
+
+    if (organizationId == null) {
+      _showMessage(
+        'Organisation invalide.',
+        isError: true,
+      );
+      return;
+    }
+
+    // --------------------------------------------------------------------------
+    // SWITCH ORGANIZATION
+    // --------------------------------------------------------------------------
+
+    if (mounted) {
+      setState(() {
+        loading = true;
+      });
+    }
+
+    try {
+      final switchData =
+          await _switchOrganization(
+        token,
+        organizationId,
+      );
+
+      final prefs =
+          await SharedPreferences.getInstance();
+
+      await _completeLogin(
+        prefs: prefs,
+        token: token,
+        organization:
+            switchData['organization'] is Map
+                ? Map<String, dynamic>.from(
+                    switchData['organization'],
+                  )
+                : selectedOrganization,
+        roles: _extractRoles(
+          switchData['roles'],
+        ),
+        permissions: _extractPermissions(
+          switchData['permissions'],
+        ),
+      );
+    } catch (e) {
+      debugPrint(
+        'ERREUR SELECTION ORGANISATION : $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          _cleanExceptionMessage(e),
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
+    }
+  }
+
+  // ==========================================================================
+  // SWITCH ORGANIZATION API
+  // ==========================================================================
+
+  Future<Map<String, dynamic>> _switchOrganization(
+    String token,
+    dynamic organizationId,
+  ) async {
     debugPrint('');
     debugPrint(
-      '==============================================',
+      '================ SWITCH ORGANIZATION ============',
     );
     debugPrint(
-      '             REDIRECTION LOGIN                ',
+      'ORGANIZATION ID : $organizationId',
     );
     debugPrint(
-      '==============================================',
+      'URL             : ${ApiConfig.switchOrganization}',
     );
     debugPrint(
-      'ROUTE REÇUE : $route',
+      '=================================================',
+    );
+
+    final response = await http.post(
+      Uri.parse(
+        ApiConfig.switchOrganization,
+      ),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'organization_id': organizationId,
+      }),
+    );
+
+    debugPrint(
+      'SWITCH STATUS : ${response.statusCode}',
+    );
+    debugPrint(
+      'SWITCH BODY   : ${response.body}',
+    );
+
+    final body = _parseResponse(
+      response.body,
+    );
+
+    if (response.statusCode != 200 ||
+        body['status'] != true) {
+      throw Exception(
+        body['message']?.toString() ??
+            'Impossible de sélectionner cette organisation.',
+      );
+    }
+
+    final rawData = body['data'];
+
+    if (rawData is! Map) {
+      throw Exception(
+        'Réponse organisation invalide.',
+      );
+    }
+
+    return Map<String, dynamic>.from(
+      rawData,
+    );
+  }
+
+  // ==========================================================================
+  // COMPLETE LOGIN
+  // ==========================================================================
+
+  Future<void> _completeLogin({
+    required SharedPreferences prefs,
+    required String token,
+    required Map<String, dynamic> organization,
+    required List<String> roles,
+    required List<String> permissions,
+  }) async {
+    final organizationId =
+        organization['id'];
+
+    if (organizationId == null) {
+      throw Exception(
+        'Identifiant de l’organisation manquant.',
+      );
+    }
+
+    // --------------------------------------------------------------------------
+    // ORGANIZATION
+    // --------------------------------------------------------------------------
+
+    await prefs.setString(
+      'organization',
+      jsonEncode(organization),
+    );
+
+    await prefs.setString(
+      'organization_id',
+      organizationId.toString(),
+    );
+
+    if (organization['slug'] != null) {
+      await prefs.setString(
+        'organization_slug',
+        organization['slug'].toString(),
+      );
+    } else {
+      await prefs.remove(
+        'organization_slug',
+      );
+    }
+
+    // --------------------------------------------------------------------------
+    // ROLES
+    // --------------------------------------------------------------------------
+
+    final uniqueRoles =
+        roles.toSet().toList();
+
+    await prefs.setString(
+      'roles',
+      jsonEncode(uniqueRoles),
+    );
+
+    // --------------------------------------------------------------------------
+    // PERMISSIONS
+    // --------------------------------------------------------------------------
+
+    final uniquePermissions =
+        permissions.toSet().toList();
+
+    await prefs.setString(
+      'permissions',
+      jsonEncode(uniquePermissions),
+    );
+
+    // --------------------------------------------------------------------------
+    // HOME ROUTE
+    // --------------------------------------------------------------------------
+
+    final homeRoute =
+        _getHomeRoute(uniqueRoles);
+
+    await prefs.setString(
+      'home_route',
+      homeRoute,
+    );
+
+    // --------------------------------------------------------------------------
+    // DEBUG
+    // --------------------------------------------------------------------------
+
+    debugPrint('');
+    debugPrint(
+      '======================================================',
+    );
+    debugPrint(
+      '                 LOGIN COMPLETED                     ',
+    );
+    debugPrint(
+      '======================================================',
+    );
+    debugPrint(
+      'ORGANIZATION : ${organization['name']}',
+    );
+    debugPrint(
+      'ORGANIZATION ID : $organizationId',
+    );
+    debugPrint(
+      'ROLES : $uniqueRoles',
+    );
+    debugPrint(
+      'PERMISSIONS : $uniquePermissions',
+    );
+    debugPrint(
+      'HOME ROUTE : $homeRoute',
+    );
+    debugPrint(
+      '======================================================',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    // --------------------------------------------------------------------------
+    // REDIRECTION
+    // --------------------------------------------------------------------------
+
+    _redirectAfterLogin(
+      homeRoute,
+    );
+  }
+
+  // ==========================================================================
+  // HOME ROUTE
+  // ==========================================================================
+
+  String _getHomeRoute(
+    List<String> roles,
+  ) {
+    /*
+     * --------------------------------------------------------------------------
+     * ADMIN
+     * --------------------------------------------------------------------------
+     */
+
+    if (roles.contains('super_admin')) {
+      return 'admin';
+    }
+
+    if (roles.contains('organization_admin')) {
+      return 'admin';
+    }
+
+    if (roles.contains('admin_rh')) {
+      return 'admin';
+    }
+
+    /*
+     * --------------------------------------------------------------------------
+     * MANAGER
+     * --------------------------------------------------------------------------
+     */
+
+    if (roles.contains('manager')) {
+      return 'manager';
+    }
+
+    /*
+     * --------------------------------------------------------------------------
+     * EMPLOYEE
+     * --------------------------------------------------------------------------
+     */
+
+    if (roles.contains('employee')) {
+      return 'employees';
+    }
+
+    /*
+     * --------------------------------------------------------------------------
+     * KIOSK
+     * --------------------------------------------------------------------------
+     */
+
+    if (roles.contains('kiosk')) {
+      return 'kiosk';
+    }
+
+    /*
+     * --------------------------------------------------------------------------
+     * FALLBACK
+     * --------------------------------------------------------------------------
+     *
+     * On ne redirige plus automatiquement vers admin.
+     * Un compte sans rôle connu ne doit pas obtenir un accès administrateur.
+     */
+
+    return 'dashboard';
+  }
+
+  // ==========================================================================
+  // REDIRECTION
+  // ==========================================================================
+
+  void _redirectAfterLogin(
+    String route,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    debugPrint('');
+    debugPrint(
+      '================ REDIRECTION =================',
+    );
+    debugPrint(
+      'ROUTE : $route',
     );
 
     switch (route) {
@@ -766,7 +1055,19 @@ class _LoginPageState extends State<LoginPage> {
           'GO NAMED => admin',
         );
 
-        context.goNamed('admin');
+        context.goNamed(
+          'admin',
+        );
+        break;
+
+      case 'manager':
+        debugPrint(
+          'GO NAMED => manager',
+        );
+
+        context.goNamed(
+          'manager',
+        );
         break;
 
       case 'employees':
@@ -774,7 +1075,9 @@ class _LoginPageState extends State<LoginPage> {
           'GO NAMED => employees',
         );
 
-        context.goNamed('employees');
+        context.goNamed(
+          'employees',
+        );
         break;
 
       case 'kiosk':
@@ -782,7 +1085,19 @@ class _LoginPageState extends State<LoginPage> {
           'GO NAMED => kiosk',
         );
 
-        context.goNamed('kiosk');
+        context.goNamed(
+          'kiosk',
+        );
+        break;
+
+      case 'dashboard':
+        debugPrint(
+          'GO NAMED => dashboard',
+        );
+
+        context.goNamed(
+          'dashboard',
+        );
         break;
 
       default:
@@ -790,11 +1105,10 @@ class _LoginPageState extends State<LoginPage> {
           'ROUTE INCONNUE : $route',
         );
 
-        debugPrint(
-          'FALLBACK => admin',
+        context.goNamed(
+          'dashboard',
         );
-
-        context.goNamed('admin');
+        break;
     }
 
     debugPrint(
@@ -802,9 +1116,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // MESSAGE
-  // ========================================================================
+  // ==========================================================================
 
   void _showMessage(
     String message, {
@@ -839,26 +1153,46 @@ class _LoginPageState extends State<LoginPage> {
             : const Color(0xFF16A34A),
         margin: const EdgeInsets.all(20),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius:
+              BorderRadius.circular(14),
         ),
       ),
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
+  // CLEAN EXCEPTION MESSAGE
+  // ==========================================================================
+
+  String _cleanExceptionMessage(
+    Object error,
+  ) {
+    return error
+        .toString()
+        .replaceFirst(
+          'Exception: ',
+          '',
+        )
+        .trim();
+  }
+
+  // ==========================================================================
   // BUILD
-  // ========================================================================
+  // ==========================================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final width =
         MediaQuery.sizeOf(context).width;
 
-    final isMobile = width < 850;
+    final isMobile =
+        width < 850;
 
     return Scaffold(
       backgroundColor:
-          const Color(0xFFF8FAFC),
+          _backgroundColor,
       body: SafeArea(
         child: isMobile
             ? _mobileLayout()
@@ -871,13 +1205,14 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // KIOSK BUTTON
-  // ========================================================================
+  // ==========================================================================
 
   Widget _kioskButton() {
     return FloatingActionButton(
-      heroTag: 'login-kiosk-button',
+      heroTag:
+          'login-kiosk-button',
       onPressed: loading
           ? null
           : () {
@@ -890,10 +1225,12 @@ class _LoginPageState extends State<LoginPage> {
               );
             },
       backgroundColor:
-          const Color(0xFF0F172A),
-      foregroundColor: Colors.white,
+          _primaryColor,
+      foregroundColor:
+          Colors.white,
       elevation: 8,
-      tooltip: 'Activer le pointeur',
+      tooltip:
+          'Activer le pointeur',
       child: const Icon(
         Icons.point_of_sale_rounded,
         size: 27,
@@ -901,9 +1238,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // DESKTOP
-  // ========================================================================
+  // ==========================================================================
 
   Widget _desktopLayout() {
     return Row(
@@ -915,7 +1252,8 @@ class _LoginPageState extends State<LoginPage> {
         Expanded(
           flex: 5,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
+            padding:
+                const EdgeInsets.symmetric(
               horizontal: 50,
               vertical: 40,
             ),
@@ -934,13 +1272,13 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // DESKTOP BRAND
-  // ========================================================================
+  // ==========================================================================
 
   Widget _desktopBrand() {
     return Container(
-      color: const Color(0xFF0F172A),
+      color: _primaryColor,
       child: Stack(
         children: [
           Positioned(
@@ -949,10 +1287,12 @@ class _LoginPageState extends State<LoginPage> {
             child: Container(
               width: 330,
               height: 330,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color:
-                    Colors.white.withOpacity(0.035),
+              decoration:
+                  BoxDecoration(
+                shape:
+                    BoxShape.circle,
+                color: Colors.white
+                    .withOpacity(0.035),
               ),
             ),
           ),
@@ -962,10 +1302,12 @@ class _LoginPageState extends State<LoginPage> {
             child: Container(
               width: 380,
               height: 380,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color:
-                    Colors.white.withOpacity(0.025),
+              decoration:
+                  BoxDecoration(
+                shape:
+                    BoxShape.circle,
+                color: Colors.white
+                    .withOpacity(0.025),
               ),
             ),
           ),
@@ -1020,7 +1362,8 @@ class _LoginPageState extends State<LoginPage> {
                         BoxDecoration(
                       color: Colors.white
                           .withOpacity(0.05),
-                      border: Border.all(
+                      border:
+                          Border.all(
                         color: Colors.white
                             .withOpacity(0.12),
                       ),
@@ -1042,7 +1385,8 @@ class _LoginPageState extends State<LoginPage> {
                         SizedBox(width: 9),
                         Text(
                           'Accès sécurisé',
-                          style: TextStyle(
+                          style:
+                              TextStyle(
                             color:
                                 Colors.white70,
                             fontWeight:
@@ -1061,9 +1405,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // MOBILE
-  // ========================================================================
+  // ==========================================================================
 
   Widget _mobileLayout() {
     return SingleChildScrollView(
@@ -1084,11 +1428,13 @@ class _LoginPageState extends State<LoginPage> {
           Container(
             width: 64,
             height: 64,
-            decoration: BoxDecoration(
-              color:
-                  const Color(0xFF0F172A),
+            decoration:
+                BoxDecoration(
+              color: _primaryColor,
               borderRadius:
-                  BorderRadius.circular(20),
+                  BorderRadius.circular(
+                20,
+              ),
             ),
             child: const Icon(
               Icons.fingerprint_rounded,
@@ -1103,8 +1449,7 @@ class _LoginPageState extends State<LoginPage> {
               fontSize: 29,
               fontWeight:
                   FontWeight.w800,
-              color:
-                  Color(0xFF0F172A),
+              color: _primaryColor,
             ),
           ),
           const SizedBox(height: 7),
@@ -1123,15 +1468,16 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // LOGIN FORM
-  // ========================================================================
+  // ==========================================================================
 
   Widget _loginForm() {
     return Container(
       padding:
           const EdgeInsets.all(30),
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(26),
@@ -1159,8 +1505,7 @@ class _LoginPageState extends State<LoginPage> {
               fontSize: 29,
               fontWeight:
                   FontWeight.w800,
-              color:
-                  Color(0xFF0F172A),
+              color: _primaryColor,
               letterSpacing: -0.5,
             ),
           ),
@@ -1175,25 +1520,38 @@ class _LoginPageState extends State<LoginPage> {
           ),
           const SizedBox(height: 30),
 
+          // --------------------------------------------------------------------
+          // LOGIN
+          // --------------------------------------------------------------------
+
           _input(
             controller:
                 loginController,
-            label: 'Email',
+            label:
+                'Email ou numéro de téléphone',
             hint:
-                'vous@entreprise.com',
+                'vous@entreprise.com ou 07...',
             icon:
-                Icons.email_outlined,
+                Icons.person_outline_rounded,
             keyboardType:
-                TextInputType.emailAddress,
+                TextInputType.text,
             textInputAction:
                 TextInputAction.next,
           ),
 
           const SizedBox(height: 16),
 
+          // --------------------------------------------------------------------
+          // PASSWORD
+          // --------------------------------------------------------------------
+
           _passwordInput(),
 
           const SizedBox(height: 8),
+
+          // --------------------------------------------------------------------
+          // FORGOT PASSWORD
+          // --------------------------------------------------------------------
 
           Align(
             alignment:
@@ -1202,10 +1560,6 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: loading
                   ? null
                   : () {
-                      debugPrint(
-                        'REDIRECTION => forgot-password',
-                      );
-
                       context.goNamed(
                         'forgot-password',
                       );
@@ -1222,6 +1576,10 @@ class _LoginPageState extends State<LoginPage> {
 
           const SizedBox(height: 12),
 
+          // --------------------------------------------------------------------
+          // LOGIN BUTTON
+          // --------------------------------------------------------------------
+
           SizedBox(
             width:
                 double.infinity,
@@ -1235,9 +1593,7 @@ class _LoginPageState extends State<LoginPage> {
               style:
                   ElevatedButton.styleFrom(
                 backgroundColor:
-                    const Color(
-                  0xFF0F172A,
-                ),
+                    _primaryColor,
                 disabledBackgroundColor:
                     const Color(
                   0xFF94A3B8,
@@ -1268,7 +1624,8 @@ class _LoginPageState extends State<LoginPage> {
                         height: 23,
                         child:
                             CircularProgressIndicator(
-                          strokeWidth: 2.5,
+                          strokeWidth:
+                              2.5,
                           color:
                               Colors.white,
                         ),
@@ -1308,6 +1665,10 @@ class _LoginPageState extends State<LoginPage> {
 
           const SizedBox(height: 26),
 
+          // --------------------------------------------------------------------
+          // SEPARATOR
+          // --------------------------------------------------------------------
+
           Row(
             children: [
               Expanded(
@@ -1327,8 +1688,9 @@ class _LoginPageState extends State<LoginPage> {
                   style:
                       TextStyle(
                     fontSize: 10.5,
-                    color:
-                        Colors.grey.shade500,
+                    color: Colors
+                        .grey
+                        .shade500,
                     fontWeight:
                         FontWeight.w700,
                     letterSpacing:
@@ -1347,6 +1709,10 @@ class _LoginPageState extends State<LoginPage> {
 
           const SizedBox(height: 18),
 
+          // --------------------------------------------------------------------
+          // CREATE ORGANIZATION
+          // --------------------------------------------------------------------
+
           SizedBox(
             width:
                 double.infinity,
@@ -1356,10 +1722,6 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: loading
                   ? null
                   : () {
-                      debugPrint(
-                        'REDIRECTION => setup-admin',
-                      );
-
                       context.goNamed(
                         'setup-admin',
                       );
@@ -1371,7 +1733,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
               label: const Text(
                 'Créer une organisation',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   fontWeight:
                       FontWeight.w600,
                 ),
@@ -1379,9 +1742,7 @@ class _LoginPageState extends State<LoginPage> {
               style:
                   OutlinedButton.styleFrom(
                 foregroundColor:
-                    const Color(
-                  0xFF0F172A,
-                ),
+                    _primaryColor,
                 side:
                     const BorderSide(
                   color:
@@ -1417,9 +1778,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // INPUT
-  // ========================================================================
+  // ==========================================================================
 
   Widget _input({
     required TextEditingController
@@ -1432,30 +1793,38 @@ class _LoginPageState extends State<LoginPage> {
         textInputAction,
   }) {
     return TextField(
-      controller: controller,
+      controller:
+          controller,
       enabled: !loading,
       keyboardType:
           keyboardType,
       textInputAction:
           textInputAction,
-      style: const TextStyle(
+      autofillHints: const [
+        AutofillHints.username,
+      ],
+      style:
+          const TextStyle(
         fontSize: 14.5,
         fontWeight:
             FontWeight.w500,
         color:
-            Color(0xFF0F172A),
+            _primaryColor,
       ),
       decoration:
           InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(
+        labelText:
+            label,
+        hintText:
+            hint,
+        prefixIcon:
+            Icon(
           icon,
           size: 21,
         ),
         filled: true,
         fillColor:
-            const Color(0xFFF8FAFC),
+            _backgroundColor,
         labelStyle:
             const TextStyle(
           color:
@@ -1510,7 +1879,7 @@ class _LoginPageState extends State<LoginPage> {
           borderSide:
               const BorderSide(
             color:
-                Color(0xFF0F172A),
+                _primaryColor,
             width: 1.5,
           ),
         ),
@@ -1530,9 +1899,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // ========================================================================
+  // ==========================================================================
   // PASSWORD
-  // ========================================================================
+  // ==========================================================================
 
   Widget _passwordInput() {
     return TextField(
@@ -1543,17 +1912,21 @@ class _LoginPageState extends State<LoginPage> {
           obscurePassword,
       textInputAction:
           TextInputAction.done,
+      autofillHints: const [
+        AutofillHints.password,
+      ],
       onSubmitted: (_) {
         if (!loading) {
           _login();
         }
       },
-      style: const TextStyle(
+      style:
+          const TextStyle(
         fontSize: 14.5,
         fontWeight:
             FontWeight.w500,
         color:
-            Color(0xFF0F172A),
+            _primaryColor,
       ),
       decoration:
           InputDecoration(
@@ -1563,8 +1936,7 @@ class _LoginPageState extends State<LoginPage> {
             'Votre mot de passe',
         prefixIcon:
             const Icon(
-          Icons
-              .lock_outline_rounded,
+          Icons.lock_outline_rounded,
           size: 21,
         ),
         suffixIcon:
@@ -1582,7 +1954,8 @@ class _LoginPageState extends State<LoginPage> {
                             !obscurePassword;
                       });
                     },
-          icon: Icon(
+          icon:
+              Icon(
             obscurePassword
                 ? Icons
                     .visibility_off_outlined
@@ -1592,7 +1965,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
         filled: true,
         fillColor:
-            const Color(0xFFF8FAFC),
+            _backgroundColor,
         labelStyle:
             const TextStyle(
           color:
@@ -1647,8 +2020,20 @@ class _LoginPageState extends State<LoginPage> {
           borderSide:
               const BorderSide(
             color:
-                Color(0xFF0F172A),
+                _primaryColor,
             width: 1.5,
+          ),
+        ),
+        disabledBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+          borderSide:
+              const BorderSide(
+            color:
+                Color(0xFFE2E8F0),
           ),
         ),
       ),

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:attendance/models/kiosk_model.dart';
-import 'package:attendance/services/kiosk/kiosk_service.dart';
+import 'package:attendance/services/admin/kiosks/kiosk_service.dart';
 import 'package:flutter/foundation.dart';
 
 class KioskController extends ChangeNotifier {

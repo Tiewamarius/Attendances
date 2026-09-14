@@ -1,15 +1,15 @@
-import 'package:attendance/console_page.dart';
+import 'package:attendance/pages/admin/console/console_page.dart';
 import 'package:attendance/auth/setup_admin_page.dart';
-import 'package:attendance/employesfolder/employee_console_page.dart';
-import 'package:attendance/kioskfolder/attendance_screen.dart';
-import 'package:attendance/kioskfolder/kiosk_activation_page.dart';
+import 'package:attendance/pages/employees/employee_console_page.dart';
+import 'package:attendance/pages/kiosk/attendance_screen.dart';
+import 'package:attendance/pages/kiosk/kiosk_activation_page.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/login_page.dart';
-import '../employesfolder/features/splash_page.dart';
+import '../pages/splash_page.dart';
 
 class AppRouter {
   AppRouter._();
