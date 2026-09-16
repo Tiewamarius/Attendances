@@ -1,16 +1,27 @@
 class EmployeeModel {
   final int id;
   final int userId;
+
+  /// Matricule / code de l'employé
   final String employeeCode;
+
   final String firstName;
   final String lastName;
   final String fullName;
+
   final String? phone;
   final String? profileImage;
   final String? position;
   final String? hireDate;
+
   final bool active;
   final String email;
+
+  /// PIN personnel de l'employé.
+  ///
+  /// Peut être null si l'API ne retourne pas le PIN.
+  final String? pin;
+
   final Department? department;
   final Manager? manager;
 
@@ -27,6 +38,7 @@ class EmployeeModel {
     this.hireDate,
     required this.active,
     required this.email,
+    this.pin,
     this.department,
     this.manager,
   });
@@ -34,34 +46,118 @@ class EmployeeModel {
   factory EmployeeModel.fromJson(Map<String, dynamic> json) {
     return EmployeeModel(
       id: _toInt(json['id']),
-      userId: _toInt(json['user_id']),
-      employeeCode: json['employee_code']?.toString() ?? '',
-      firstName: json['first_name']?.toString() ?? '',
-      lastName: json['last_name']?.toString() ?? '',
-      fullName: json['full_name']?.toString() ??
-          '${json['first_name'] ?? ''} ${json['last_name'] ?? ''}'.trim(),
+
+      userId: _toInt(
+        json['user_id'] ?? json['userId'],
+      ),
+
+      employeeCode:
+          json['employee_code']?.toString() ??
+          json['employeeCode']?.toString() ??
+          '',
+
+      firstName:
+          json['first_name']?.toString() ??
+          json['firstName']?.toString() ??
+          '',
+
+      lastName:
+          json['last_name']?.toString() ??
+          json['lastName']?.toString() ??
+          '',
+
+      fullName:
+          json['full_name']?.toString() ??
+          json['fullName']?.toString() ??
+          '${json['first_name'] ?? json['firstName'] ?? ''} '
+                  '${json['last_name'] ?? json['lastName'] ?? ''}'
+              .trim(),
+
       phone: json['phone']?.toString(),
-      profileImage: json['profile_image']?.toString(),
+
+      profileImage:
+          json['profile_image']?.toString() ??
+          json['profileImage']?.toString(),
+
       position: json['position']?.toString(),
-      hireDate: json['hire_date']?.toString(),
+
+      hireDate:
+          json['hire_date']?.toString() ??
+          json['hireDate']?.toString(),
+
       active: _toBool(json['active']),
+
       email: json['email']?.toString() ?? '',
 
-      department: json['department'] is Map<String, dynamic>
+      // PIN de l'employé
+      pin: _extractPin(json),
+
+      department: json['department'] is Map
           ? Department.fromJson(
-              json['department'] as Map<String, dynamic>,
+              Map<String, dynamic>.from(
+                json['department'] as Map,
+              ),
             )
           : null,
 
-      manager: json['manager'] is Map<String, dynamic>
+      manager: json['manager'] is Map
           ? Manager.fromJson(
-              json['manager'] as Map<String, dynamic>,
+              Map<String, dynamic>.from(
+                json['manager'] as Map,
+              ),
             )
           : null,
     );
   }
 
-  /// Initiales de l'employé
+  // ===========================================================================
+  // PIN
+  // ===========================================================================
+
+  /// Accepte plusieurs noms possibles provenant de l'API.
+  ///
+  /// Exemple :
+  /// {
+  ///   "pin": "482913"
+  /// }
+  ///
+  /// ou :
+  ///
+  /// {
+  ///   "employee_pin": "482913"
+  /// }
+  static String? _extractPin(
+    Map<String, dynamic> json,
+  ) {
+    final value =
+        json['pin'] ??
+        json['employee_pin'] ??
+        json['employeePin'] ??
+        json['pin_code'] ??
+        json['pinCode'];
+
+    if (value == null) {
+      return null;
+    }
+
+    final result = value.toString().trim();
+
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return result;
+  }
+
+  /// Indique si un PIN est disponible.
+  bool get hasPin {
+    return pin != null && pin!.trim().isNotEmpty;
+  }
+
+  // ===========================================================================
+  // INITIALES
+  // ===========================================================================
+
   String get initials {
     final first = firstName.trim();
     final last = lastName.trim();
@@ -78,11 +174,14 @@ class EmployeeModel {
       return last[0].toUpperCase();
     }
 
-    if (fullName.trim().isNotEmpty) {
-      final parts = fullName.trim().split(RegExp(r'\s+'));
+    final name = fullName.trim();
+
+    if (name.isNotEmpty) {
+      final parts = name.split(RegExp(r'\s+'));
 
       if (parts.length >= 2) {
-        return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+        return '${parts.first[0]}${parts.last[0]}'
+            .toUpperCase();
       }
 
       return parts.first[0].toUpperCase();
@@ -91,45 +190,119 @@ class EmployeeModel {
     return '?';
   }
 
-  /// Nom du département directement utilisable dans l'UI
+  // ===========================================================================
+  // DEPARTEMENT
+  // ===========================================================================
+
   String get departmentName {
     return department?.name ?? 'Aucun département';
   }
 
-  /// Nom du manager directement utilisable dans l'UI
+  // ===========================================================================
+  // MANAGER
+  // ===========================================================================
+
   String get managerName {
     return manager?.name ?? 'Aucun manager';
   }
 
-  /// Position avec valeur par défaut
+  // ===========================================================================
+  // POSTE
+  // ===========================================================================
+
   String get positionName {
-    return position?.trim().isNotEmpty == true
-        ? position!.trim()
-        : 'Employé';
+    final value = position?.trim();
+
+    if (value != null && value.isNotEmpty) {
+      return value;
+    }
+
+    return 'Employé';
   }
 
-  static int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
+  // ===========================================================================
+  // NOM COMPLET
+  // ===========================================================================
 
-    return int.tryParse(value?.toString() ?? '') ?? 0;
+  String get displayName {
+    final value = fullName.trim();
+
+    if (value.isNotEmpty) {
+      return value;
+    }
+
+    return '$firstName $lastName'.trim();
+  }
+
+  // ===========================================================================
+  // HELPERS
+  // ===========================================================================
+
+  static int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
   }
 
   static bool _toBool(dynamic value) {
-    if (value is bool) return value;
+    if (value is bool) {
+      return value;
+    }
 
     if (value is num) {
       return value != 0;
     }
 
-    final stringValue = value?.toString().toLowerCase();
+    final stringValue =
+        value?.toString().toLowerCase().trim();
 
     return stringValue == '1' ||
         stringValue == 'true' ||
         stringValue == 'yes';
   }
+
+  // ===========================================================================
+  // JSON
+  // ===========================================================================
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'employee_code': employeeCode,
+      'first_name': firstName,
+      'last_name': lastName,
+      'full_name': fullName,
+      'phone': phone,
+      'profile_image': profileImage,
+      'position': position,
+      'hire_date': hireDate,
+      'active': active,
+      'email': email,
+      'pin': pin,
+
+      if (department != null)
+        'department': department!.toJson(),
+
+      if (manager != null)
+        'manager': manager!.toJson(),
+    };
+  }
 }
 
+
+// ============================================================================
+// DEPARTMENT
+// ============================================================================
 
 class Department {
   final int id;
@@ -140,21 +313,42 @@ class Department {
     required this.name,
   });
 
-  factory Department.fromJson(Map<String, dynamic> json) {
+  factory Department.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return Department(
       id: _toInt(json['id']),
       name: json['name']?.toString() ?? '',
     );
   }
 
-  static int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+    };
+  }
 
-    return int.tryParse(value?.toString() ?? '') ?? 0;
+  static int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
   }
 }
 
+
+// ============================================================================
+// MANAGER
+// ============================================================================
 
 class Manager {
   final int id;
@@ -165,17 +359,34 @@ class Manager {
     required this.name,
   });
 
-  factory Manager.fromJson(Map<String, dynamic> json) {
+  factory Manager.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return Manager(
       id: _toInt(json['id']),
       name: json['name']?.toString() ?? '',
     );
   }
 
-  static int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+    };
+  }
 
-    return int.tryParse(value?.toString() ?? '') ?? 0;
+  static int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
   }
 }
