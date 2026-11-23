@@ -30,11 +30,7 @@ class KioskService {
       );
     }
 
-    return {
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-      if (json) 'Content-Type': 'application/json',
-    };
+    return AuthService.userHeaders(json: json);
   }
 
   // ============================================================

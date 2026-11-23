@@ -68,9 +68,15 @@ class _EmployeesPageState extends State<EmployeesPage> {
   @override
   void initState() {
     super.initState();
+    AuthService.canManage().then((value) {
+      if (mounted) setState(() => canManage = value);
+    });
     _searchController.addListener(_onSearchChanged);
     fetchEmployees();
   }
+
+  // Manager = lecture seule.
+  bool canManage = false;
 
   @override
   void dispose() {
@@ -174,11 +180,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
 
       final response = await http.get(
         Uri.parse(ApiConfig.employees),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: await AuthService.userHeaders(json: true, token: token),
       );
 
       if (!mounted) return;
@@ -365,11 +367,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
 
       final response = await http.post(
         Uri.parse(ApiConfig.employees),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: await AuthService.userHeaders(json: true, token: token),
         body: jsonEncode(body),
       );
 
@@ -1058,6 +1056,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
 
         const Spacer(),
 
+        if (canManage)
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -1531,7 +1530,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
               : null,
       onBackgroundImageError:
           imageUrl != null && imageUrl.isNotEmpty
-              ? (_, __) {}
+              ? (_, _) {}
               : null,
       child: imageUrl == null || imageUrl.isEmpty
           ? Text(
@@ -2006,15 +2005,16 @@ class _EmployeesPageState extends State<EmployeesPage> {
               ),
             ),
 
-            IconButton(
-              tooltip: 'Ajouter un employé',
-              onPressed:
-                  isSaving ? null : _showAddEmployeeModal,
-              icon: const Icon(
-                Icons.person_add_outlined,
-                color: textGrey,
+            if (canManage)
+              IconButton(
+                tooltip: 'Ajouter un employé',
+                onPressed:
+                    isSaving ? null : _showAddEmployeeModal,
+                icon: const Icon(
+                  Icons.person_add_outlined,
+                  color: textGrey,
+                ),
               ),
-            ),
 
             PopupMenuButton<String>(
               tooltip: 'Options',
@@ -2027,25 +2027,26 @@ class _EmployeesPageState extends State<EmployeesPage> {
                   fetchEmployees();
                 }
 
-                if (value == 'add') {
+                if (value == 'add' && canManage) {
                   _showAddEmployeeModal();
                 }
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: 'add',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.person_add_outlined,
-                        size: 19,
-                      ),
-                      SizedBox(width: 10),
-                      Text('Ajouter un employé'),
-                    ],
+              itemBuilder: (context) => [
+                if (canManage)
+                  const PopupMenuItem(
+                    value: 'add',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_add_outlined,
+                          size: 19,
+                        ),
+                        SizedBox(width: 10),
+                        Text('Ajouter un employé'),
+                      ],
+                    ),
                   ),
-                ),
-                PopupMenuItem(
+                const PopupMenuItem(
                   value: 'refresh',
                   child: Row(
                     children: [

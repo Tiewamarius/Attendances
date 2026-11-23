@@ -136,6 +136,23 @@ class AuthService {
     return headers;
   }
 
+  /// Headers à utiliser par TOUS les appels d'un utilisateur connecté :
+  /// Authorization + X-Organization-Id (exigé par l'API sur ces routes).
+  ///
+  /// [token] permet de forcer un token précis (sinon celui de la session).
+  static Future<Map<String, String>> userHeaders({
+    bool json = false,
+    String? token,
+  }) async {
+    final headers = await _headers(contentType: json);
+
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return headers;
+  }
+
   // ==========================================================================
   // HEADERS KIOSK
   // ==========================================================================
@@ -442,10 +459,6 @@ class AuthService {
 
       if (rawData is! Map) {
         rawData = body;
-      }
-
-      if (rawData is! Map) {
-        return null;
       }
 
       final data = Map<String, dynamic>.from(rawData);
@@ -771,10 +784,6 @@ class AuthService {
         rawData = body;
       }
 
-      if (rawData is! Map) {
-        return null;
-      }
-
       final data =
           Map<String, dynamic>.from(rawData);
 
@@ -1095,6 +1104,32 @@ class AuthService {
 
   static Future<bool> isEmployee() async {
     return hasRole('employee');
+  }
+
+  /// Rôles donnant accès à la console d'administration.
+  static const List<String> adminRoles = [
+    'super_admin',
+    'organization_admin',
+    'admin_rh',
+    'manager',
+  ];
+
+  /// Route d'accueil selon les rôles ('admin' | 'employees').
+  /// Moindre privilège : sans rôle admin reconnu => 'employees'.
+  static String homeRouteForRoles(List<String> roles) {
+    return roles.any(adminRoles.contains) ? 'admin' : 'employees';
+  }
+
+  /// Admin « complet » : peut créer/modifier/supprimer.
+  /// Le manager accède à /admin mais en actions limitées.
+  static const List<String> fullAdminRoles = [
+    'super_admin',
+    'organization_admin',
+    'admin_rh',
+  ];
+
+  static Future<bool> canManage() async {
+    return hasAnyRole(fullAdminRoles);
   }
 
   static Future<bool> isAdmin() async {

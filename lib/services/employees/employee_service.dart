@@ -20,17 +20,7 @@ class EmployeeService {
   }) async {
     final token = await AuthService.getToken();
 
-    final headers = <String, String>{
-      'Accept': 'application/json',
-    };
-
-    if (json) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
+    final headers = await AuthService.userHeaders(json: json);
 
     debugPrint('========================================');
     debugPrint('EMPLOYEE API HEADERS');

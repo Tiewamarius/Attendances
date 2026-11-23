@@ -19,14 +19,7 @@ class UserService {
   static Future<Map<String, String>> _headers({
     bool json = false,
   }) async {
-    final token = await AuthService.getToken();
-
-    return {
-      'Accept': 'application/json',
-      if (json) 'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty)
-        'Authorization': 'Bearer $token',
-    };
+    return AuthService.userHeaders(json: json);
   }
 
   // ============================================================
@@ -99,10 +92,7 @@ Future<AdminDashboardModel> getDashboard() async {
 
       final response = await http.get(
         Uri.parse(ApiConfig.dashboard),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: await AuthService.userHeaders(token: token),
       );
 
       debugPrint(
