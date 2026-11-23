@@ -33,12 +33,13 @@ class EmployeeModel {
 
   factory EmployeeModel.fromJson(Map<String, dynamic> json) {
     return EmployeeModel(
-      id: json['id'],
-      userId: json['user_id'],
+      id: json['id'] ?? 0,
+      userId: json['user_id'] ?? 0,
       employeeCode: json['employee_code'] ?? '',
       firstName: json['first_name'] ?? '',
       lastName: json['last_name'] ?? '',
-      fullName: json['full_name'] ?? '',
+      fullName: json['full_name'] ??
+          '${json['first_name'] ?? ''} ${json['last_name'] ?? ''}'.trim(),
       phone: json['phone'],
       profileImage: json['profile_image'],
       position: json['position'],
@@ -63,8 +64,17 @@ class Department {
 
   Department({required this.id, required this.name});
 
-  factory Department.fromJson(Map<String, dynamic> json) {
-    return Department(id: json['id'], name: json['name'] ?? '');
+  /// L'API renvoie tantôt un objet {id, name}, tantôt (au login) seulement
+  /// le nom du département sous forme de texte.
+  factory Department.fromJson(dynamic json) {
+    if (json is Map) {
+      return Department(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        name: json['name']?.toString() ?? '',
+      );
+    }
+
+    return Department(id: 0, name: json?.toString() ?? '');
   }
 }
 
@@ -74,7 +84,15 @@ class Manager {
 
   Manager({required this.id, required this.name});
 
-  factory Manager.fromJson(Map<String, dynamic> json) {
-    return Manager(id: json['id'], name: json['name'] ?? '');
+  factory Manager.fromJson(dynamic json) {
+    if (json is Map) {
+      return Manager(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        name: json['name']?.toString() ??
+            '${json['first_name'] ?? ''} ${json['last_name'] ?? ''}'.trim(),
+      );
+    }
+
+    return Manager(id: 0, name: json?.toString() ?? '');
   }
 }

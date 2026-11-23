@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:attendance/employesfolder/pages/employee_home_page.dart.dart';
 import 'package:attendance/employesfolder/pages/employee_history_page.dart';
 import 'package:attendance/employesfolder/pages/planning_pages.dart';
+import 'package:attendance/employesfolder/pages/qr_page.dart';
 
 class EmployeeConsolePage extends StatefulWidget {
   const EmployeeConsolePage({
@@ -37,16 +38,41 @@ class _EmployeeConsolePageState extends State<EmployeeConsolePage> {
 
       final token = prefs.getString('token');
 
-      // Adapte cette clé à celle utilisée dans ton login.
+      // Le login enregistre le profil employé sous 'employee' et le
+      // compte sous 'user'. On privilégie 'employee'.
+      final employeeJson = prefs.getString('employee');
       final userJson = prefs.getString('user');
 
-      if (token == null || token.isEmpty || userJson == null) {
+      if (token == null ||
+          token.isEmpty ||
+          (employeeJson == null && userJson == null)) {
         throw Exception('Session utilisateur introuvable');
       }
 
-      final userMap = jsonDecode(userJson);
+      Map<String, dynamic> map;
 
-      final employee = EmployeeModel.fromJson(userMap);
+      if (employeeJson != null) {
+        map = Map<String, dynamic>.from(jsonDecode(employeeJson));
+
+        // Complète avec le compte si des champs manquent.
+        if (userJson != null) {
+          final user = Map<String, dynamic>.from(jsonDecode(userJson));
+          map['user_id'] ??= user['id'];
+          map['email'] ??= user['email'];
+          map['full_name'] ??= user['name'];
+        }
+      } else {
+        // Pas de profil employé : on se rabat sur le compte.
+        final user = Map<String, dynamic>.from(jsonDecode(userJson!));
+        map = {
+          'id': user['id'],
+          'user_id': user['id'],
+          'full_name': user['name'],
+          'email': user['email'],
+        };
+      }
+
+      final employee = EmployeeModel.fromJson(map);
 
       if (!mounted) return;
 
@@ -55,7 +81,10 @@ class _EmployeeConsolePageState extends State<EmployeeConsolePage> {
         _employee = employee;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[EMPLOYEE] Session illisible : $e');
+      debugPrintStack(stackTrace: stack);
+
       if (!mounted) return;
 
       setState(() {
@@ -70,6 +99,10 @@ class _EmployeeConsolePageState extends State<EmployeeConsolePage> {
       EmployeHome(),
       EmployeePlanningPage(),
       EmployeeHistoryPage(
+        employee: _employee!,
+        token: _token!,
+      ),
+      QrPage(
         employee: _employee!,
         token: _token!,
       ),
@@ -162,6 +195,10 @@ class _EmployeeConsolePageState extends State<EmployeeConsolePage> {
             BottomNavigationBarItem(
               icon: Icon(Icons.history_rounded),
               label: 'Historique',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.qr_code_2_rounded),
+              label: 'Mon QR',
             ),
           ],
           selectedItemColor: Color(0xFF4F46E5),
