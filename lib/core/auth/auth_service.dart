@@ -1,6 +1,7 @@
  import 'dart:convert';
 
 import 'package:attendance/core/network/api_endpoints.dart';
+import 'package:attendance/core/offline/read_cache.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -1372,6 +1373,9 @@ class AuthService {
   static Future<void> clearSession() async {
     final prefs =
         await SharedPreferences.getInstance();
+
+    // Copies locales (listes, historique, QR...) : propres à ce compte.
+    await ReadCache.clearAll();
 
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);

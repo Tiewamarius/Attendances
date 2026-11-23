@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:attendance/core/auth/auth_service.dart';
+import 'package:attendance/core/offline/read_cache.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:attendance/models/employee_model.dart';
 import 'package:flutter/foundation.dart';
@@ -43,10 +44,13 @@ class EmployeeService {
     debugPrint('URL: ${ApiConfig.dashboard}');
     debugPrint('========================================');
 
-    final response = await http.get(
-      Uri.parse(ApiConfig.dashboard),
-      headers: headers,
-    );
+    final response = await ReadCache.cachedGet(
+        'dashboard',
+        () async => http.get(
+          Uri.parse(ApiConfig.dashboard),
+          headers: headers,
+        ),
+      );
 
     debugPrint('STATUS: ${response.statusCode}');
     debugPrint('BODY: ${response.body}');

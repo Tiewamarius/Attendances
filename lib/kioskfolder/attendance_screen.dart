@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:attendance/core/offline/connectivity_service.dart';
+import 'package:attendance/core/offline/kiosk_directory.dart';
+import 'package:attendance/core/offline/kiosk_offline_queue.dart';
 import 'package:attendance/models/kiosk_model.dart';
 import 'package:attendance/services/kiosk/kiosk_service.dart';
 import 'package:flutter/material.dart';
@@ -58,13 +61,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Timer? _qrRefreshTimer;
 
   // ============================================================
-  // CODE EMPLOYE
-  // ============================================================
-
-  final TextEditingController _employeeCodeController =
-      TextEditingController();
-
-  // ============================================================
   // PIN
   // ============================================================
 
@@ -85,6 +81,108 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _isProcessing = false;
 
   // ============================================================
+  // INACTIVITE / FERMETURE AUTO
+  // ============================================================
+
+  /// Retour au mode par défaut (et effacement du PIN) après
+  /// ce délai sans interaction, pour ne laisser aucune saisie
+  /// affichée entre deux employés.
+  static const Duration _idleDelay = Duration(seconds: 60);
+
+  /// Durée d'affichage du résultat du pointage.
+  static const Duration _resultDelay = Duration(seconds: 4);
+
+  // ============================================================
+  // CONFIRMATION DES POINTAGES FAITS AVEC LE TELEPHONE
+  // ============================================================
+
+  static const Duration _scanEventsInterval = Duration(seconds: 3);
+
+  Timer? _scanEventsTimer;
+
+  /// null tant que l'amorçage n'est pas fait (évite de rejouer
+  /// d'anciens pointages au démarrage).
+  int? _lastScanEventId;
+
+  bool _pollingScanEvents = false;
+
+  void _startScanEventsPolling() {
+    _scanEventsTimer?.cancel();
+    _scanEventsTimer = Timer.periodic(
+      _scanEventsInterval,
+      (_) => _pollScanEvents(),
+    );
+  }
+
+  Future<void> _pollScanEvents() async {
+    if (!mounted || _pollingScanEvents) return;
+
+    // Pas de sondage pendant un pointage ou l'affichage d'un résultat.
+    if (_isProcessing || _resultOpen) return;
+
+    _pollingScanEvents = true;
+
+    try {
+      final result = await _kioskService.getScanEvents(
+        afterId: _lastScanEventId,
+      );
+
+      if (_lastScanEventId == null) {
+        _lastScanEventId = result.lastId;
+        return;
+      }
+
+      if (result.events.isEmpty) return;
+
+      _lastScanEventId = result.lastId;
+
+      // Le QR a été consommé : on en génère un nouveau tout de suite.
+      unawaited(_refreshAttendanceQr());
+
+      for (final event in result.events) {
+        if (!mounted) return;
+
+        await _showAttendanceResult(
+          success: true,
+          employeeName: _extractEmployeeName({
+            'data': {'employee': event['employee']},
+          }),
+          message: (event['message'] ?? 'Pointage enregistré avec succès.')
+              .toString(),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur sondage pointages : $e');
+    } finally {
+      _pollingScanEvents = false;
+    }
+  }
+
+  Timer? _idleTimer;
+  Timer? _resultTimer;
+  bool _resultOpen = false;
+
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(_idleDelay, _onIdle);
+  }
+
+  Future<void> _onIdle() async {
+    if (!mounted || _isProcessing) {
+      _resetIdleTimer();
+      return;
+    }
+
+    setState(() {
+      _pinCode = '';
+    });
+
+    if (_selectedMode != modeKioskQr) {
+      await _changeMode(modeKioskQr);
+    }
+  }
+
+  // ============================================================
   // INIT
   // ============================================================
 
@@ -98,6 +196,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       detectionSpeed: DetectionSpeed.noDuplicates,
     );
 
+    _resetIdleTimer();
+
+    // Mode hors ligne : surveillance du serveur + file de synchronisation.
+    ConnectivityService.instance.start();
+    KioskOfflineQueue.instance.init(_kioskService);
+    KioskDirectory.instance.init(_kioskService);
+    ConnectivityService.instance.online.addListener(_onConnectivityChanged);
+    KioskOfflineQueue.instance.pending.addListener(_onQueueChanged);
+    KioskOfflineQueue.instance.rejected.addListener(_onSyncRejected);
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadKiosk();
 
@@ -106,6 +214,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       }
 
       _startQrRefreshTimer();
+      _startScanEventsPolling();
 
       await _startCurrentScanner();
     });
@@ -118,11 +227,164 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   void dispose() {
     _qrRefreshTimer?.cancel();
+    _idleTimer?.cancel();
+    _resultTimer?.cancel();
+
+    _scanEventsTimer?.cancel();
+
+    ConnectivityService.instance.online.removeListener(_onConnectivityChanged);
+    KioskOfflineQueue.instance.pending.removeListener(_onQueueChanged);
+    KioskOfflineQueue.instance.rejected.removeListener(_onSyncRejected);
 
     _employeeQrController.dispose();
-    _employeeCodeController.dispose();
 
     super.dispose();
+  }
+
+  // ============================================================
+  // HORS LIGNE
+  // ============================================================
+
+  bool get _isOnline => ConnectivityService.instance.online.value;
+
+  void _onQueueChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onConnectivityChanged() {
+    if (!mounted) return;
+
+    setState(() {});
+
+    if (_isOnline) {
+      // Retour de connexion : infos kiosk + QR à jour, événements ré-amorcés.
+      _lastScanEventId = null;
+      unawaited(_loadKiosk());
+    }
+  }
+
+  void _onSyncRejected() {
+    final refused = KioskOfflineQueue.instance.rejected.value;
+
+    if (!mounted || refused.isEmpty) return;
+
+    _showMessage(
+      '${refused.length} pointage(s) hors ligne refusé(s) à la '
+      'synchronisation : ${refused.first}',
+      Colors.orange,
+    );
+  }
+
+  /// Enregistre un pointage dans la file (serveur injoignable).
+  Future<void> _saveOffline({
+    required String method,
+    required String secret,
+  }) async {
+    final directory = KioskDirectory.instance;
+
+    // PIN : verrouillage après des échecs répétés (tablette sans serveur).
+    if (method == 'PIN') {
+      final locked = directory.lockedFor();
+
+      if (locked != null) {
+        await _offlineFailure(
+          "Trop d'essais. Réessayez dans ${locked.inSeconds + 1} s.",
+        );
+        return;
+      }
+    }
+
+    // Reconnaissance locale grâce à l'annuaire téléchargé en ligne.
+    final match = method == 'PIN'
+        ? directory.findByPin(secret)
+        : directory.findByQr(secret);
+
+    // Pas d'annuaire (premier démarrage hors ligne) : on garde ce qui a été
+    // saisi, le serveur vérifiera à la synchronisation.
+    if (match == null) {
+      final added = await KioskOfflineQueue.instance.enqueue(
+        method: method,
+        secret: secret,
+      );
+
+      if (!mounted) return;
+
+      await _showAttendanceResult(
+        success: added,
+        employeeName: 'Mode hors ligne',
+        message: added
+            ? 'Pointage enregistré. Il sera vérifié et synchronisé '
+                'dès le retour de la connexion.'
+            : "Pointage déjà enregistré à l'instant.",
+      );
+      return;
+    }
+
+    if (match.ambiguous) {
+      await _offlineFailure(
+        'Ce PIN est partagé entre plusieurs employés. '
+        'Utilisez votre QR code ou attendez le retour de la connexion.',
+      );
+      return;
+    }
+
+    final employeeId = match.employeeId;
+
+    if (employeeId == null) {
+      if (method == 'PIN') directory.registerPinFailure();
+
+      await _offlineFailure(
+        method == 'PIN' ? 'PIN incorrect.' : 'QR code invalide ou expiré.',
+      );
+      return;
+    }
+
+    if (method == 'PIN') directory.registerPinSuccess();
+
+    final type = directory.peekPunch(employeeId);
+
+    if (type == null) {
+      await _offlineFailure(
+        "Le pointage de ${match.fullName} est déjà terminé pour aujourd'hui.",
+      );
+      return;
+    }
+
+    final added = await KioskOfflineQueue.instance.enqueue(
+      method: method,
+      employeeId: employeeId,
+    );
+
+    if (!mounted) return;
+
+    if (!added) {
+      await _offlineFailure("Pointage déjà enregistré à l'instant.");
+      return;
+    }
+
+    await directory.recordPunch(employeeId);
+
+    if (!mounted) return;
+
+    await _showAttendanceResult(
+      success: true,
+      employeeName: match.fullName,
+      message: type == 'check_in'
+          ? 'Arrivée enregistrée (hors ligne). Synchronisation automatique '
+              'au retour de la connexion.'
+          : 'Départ enregistré (hors ligne). Synchronisation automatique '
+              'au retour de la connexion.',
+    );
+  }
+
+  Future<void> _offlineFailure(String message) async {
+    if (!mounted) return;
+
+    await _showAttendanceResult(
+      success: false,
+      employeeName: 'Mode hors ligne',
+      message: message,
+    );
   }
 
   // ============================================================
@@ -202,6 +464,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
+    // Serveur injoignable : on démarre quand même avec le kiosk en cache.
+    if (isNetworkError(e)) {
+      ConnectivityService.instance.reportFailure();
+
+      final cached = await _kioskService.getCachedKiosk();
+
+      if (!mounted) return;
+
+      setState(() {
+        _kiosk = cached ?? _kiosk;
+        _loadingKiosk = false;
+        _kioskQrValue = '';
+      });
+
+      return;
+    }
+
     setState(() {
       _loadingKiosk = false;
       _kioskQrValue = '';
@@ -275,7 +554,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     setState(() {
       _selectedMode = mode;
       _pinCode = '';
-      _employeeCodeController.clear();
       _isProcessing = false;
     });
 
@@ -373,6 +651,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       'QR EMPLOYE DETECTE',
     );
 
+    // Serveur injoignable : on enregistre localement, synchro plus tard.
+    if (!_isOnline) {
+      await _saveOffline(method: 'QR', secret: value);
+      return;
+    }
+
     try {
       final result = await _kioskService.scanQr(value);
 
@@ -402,6 +686,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         return;
       }
 
+      if (isNetworkError(e)) {
+        ConnectivityService.instance.reportFailure();
+        await _saveOffline(method: 'QR', secret: value);
+        return;
+      }
+
       await _showAttendanceResult(
         success: false,
         employeeName: 'Pointage',
@@ -415,18 +705,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // ============================================================
 
   Future<void> _submitPin() async {
-    final employeeCode =
-        _employeeCodeController.text.trim();
-
-    if (employeeCode.isEmpty) {
-      _showMessage(
-        'Veuillez entrer votre code employé.',
-        Colors.orange,
-      );
-
-      return;
-    }
-
     if (_pinCode.length < 4) {
       _showMessage(
         'Veuillez entrer un code PIN valide.',
@@ -448,10 +726,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _isProcessing = true;
     });
 
+    final pin = _pinCode;
+
+    if (!_isOnline) {
+      setState(() => _pinCode = '');
+      await _saveOffline(method: 'PIN', secret: pin);
+      return;
+    }
+
     try {
       final result =
           await _kioskService.checkPin(
-        employeeCode: employeeCode,
         pin: _pinCode,
       );
 
@@ -469,7 +754,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       setState(() {
         _pinCode = '';
-        _employeeCodeController.clear();
       });
 
       await _showAttendanceResult(
@@ -483,6 +767,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       );
 
       if (!mounted) {
+        return;
+      }
+
+      if (isNetworkError(e)) {
+        ConnectivityService.instance.reportFailure();
+        setState(() => _pinCode = '');
+        await _saveOffline(method: 'PIN', secret: pin);
         return;
       }
 
@@ -610,6 +901,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     required String employeeName,
     required String message,
   }) async {
+    // Fermeture automatique : le kiosk est utilisé à la chaîne.
+    _resultOpen = true;
+    _resultTimer?.cancel();
+    _resultTimer = Timer(_resultDelay, () {
+      if (_resultOpen && mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -718,6 +1018,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       },
     );
 
+    _resultOpen = false;
+    _resultTimer?.cancel();
+    _resetIdleTimer();
+
     if (!mounted) {
       return;
     }
@@ -781,7 +1085,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return Scaffold(
       backgroundColor:
           const Color(0xFFF5F7FA),
-      body: SafeArea(
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _resetIdleTimer(),
+        child: SafeArea(
         child: Column(
           children: [
             _buildHeader(
@@ -825,6 +1132,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -844,23 +1152,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: isTablet ? 58 : 48,
-            height: isTablet ? 58 : 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F8FF),
-              borderRadius:
-                  BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.fingerprint_rounded,
-              color: Color(0xFF20C4F4),
-              size: 28,
-            ),
-          ),
-
-          const SizedBox(width: 14),
-
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -879,7 +1170,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
                 Text(
                   _kiosk == null
-                      ? 'QR Code ou code PIN'
+                      ? 'QR Code, code PIN (empreinte bientôt)'
                       : _kiosk!.name,
                   style: const TextStyle(
                     fontSize: 12,
@@ -900,9 +1191,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               vertical: 8,
             ),
             decoration: BoxDecoration(
-              color: _loadingKiosk
-                  ? const Color(0xFFFFF7ED)
-                  : const Color(0xFFE8FFF1),
+              color: !_isOnline
+                  ? const Color(0xFFFEE2E2)
+                  : _loadingKiosk
+                      ? const Color(0xFFFFF7ED)
+                      : const Color(0xFFE8FFF1),
               borderRadius:
                   BorderRadius.circular(20),
             ),
@@ -910,25 +1203,34 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.circle,
-                  size: 8,
-                  color: _loadingKiosk
-                      ? const Color(0xFFF59E0B)
-                      : const Color(0xFF16A34A),
+                  !_isOnline ? Icons.cloud_off_rounded : Icons.circle,
+                  size: !_isOnline ? 14 : 8,
+                  color: !_isOnline
+                      ? const Color(0xFFDC2626)
+                      : _loadingKiosk
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFF16A34A),
                 ),
 
                 const SizedBox(width: 6),
 
                 Text(
-                  _loadingKiosk
-                      ? 'Connexion'
-                      : 'En ligne',
+                  !_isOnline
+                      ? 'Hors ligne'
+                          '${KioskOfflineQueue.instance.pending.value > 0 ? ' • ${KioskOfflineQueue.instance.pending.value} en attente' : ''}'
+                      : KioskOfflineQueue.instance.pending.value > 0
+                          ? 'Synchronisation • ${KioskOfflineQueue.instance.pending.value}'
+                          : _loadingKiosk
+                              ? 'Connexion'
+                              : 'En ligne',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: _loadingKiosk
-                        ? const Color(0xFFB45309)
-                        : const Color(0xFF15803D),
+                    color: !_isOnline
+                        ? const Color(0xFFB91C1C)
+                        : _loadingKiosk
+                            ? const Color(0xFFB45309)
+                            : const Color(0xFF15803D),
                   ),
                 ),
               ],
@@ -1098,9 +1400,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   horizontal: 20,
                                 ),
                                 child: Text(
-                                  _loadingKiosk
-                                      ? 'Chargement du kiosque...'
-                                      : 'Génération du QR de pointage...',
+                                  !_isOnline
+                                      ? 'Hors ligne : ce mode nécessite la connexion. Utilisez le code PIN ou présentez votre QR.'
+                                      : _loadingKiosk
+                                          ? 'Chargement du kiosque...'
+                                          : 'Génération du QR de pointage...',
                                   textAlign:
                                       TextAlign.center,
                                   style:
@@ -1467,7 +1771,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               const SizedBox(height: 8),
 
               const Text(
-                'Entrez votre code employé et votre PIN pour effectuer le pointage.',
+                'Entrez votre PIN personnel pour effectuer le pointage.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -1480,63 +1784,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               const SizedBox(height: 20),
 
               // ------------------------------------------------
-              // CODE EMPLOYE
-              // ------------------------------------------------
-
-              TextField(
-                controller:
-                    _employeeCodeController,
-                enabled: !_isProcessing,
-                textInputAction:
-                    TextInputAction.done,
-                textCapitalization:
-                    TextCapitalization.characters,
-                decoration: InputDecoration(
-                  hintText:
-                      'Code employé',
-                  prefixIcon:
-                      const Icon(
-                    Icons.badge_outlined,
-                    color:
-                        Color(0xFF64748B),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border:
-                      OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(18),
-                    borderSide:
-                        const BorderSide(
-                      color:
-                          Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  enabledBorder:
-                      OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(18),
-                    borderSide:
-                        const BorderSide(
-                      color:
-                          Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  focusedBorder:
-                      OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(18),
-                    borderSide:
-                        const BorderSide(
-                      color:
-                          Color(0xFF20C4F4),
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
 
               // ------------------------------------------------
               // PIN DISPLAY
@@ -1726,7 +1973,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               index: modeKioskQr,
               icon:
                   Icons.qr_code_2_rounded,
-              label: 'QR Kiosk',
+              label: 'Scanner (téléphone)',
             ),
           ),
 
@@ -1735,7 +1982,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               index: modeEmployeeQr,
               icon:
                   Icons.camera_alt_rounded,
-              label: 'Mon QR',
+              label: 'Présenter mon QR',
             ),
           ),
 
@@ -1744,7 +1991,44 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               index: modePin,
               icon:
                   Icons.pin_rounded,
-              label: 'PIN',
+              label: 'Code PIN',
+            ),
+          ),
+
+          // Empreinte digitale : prévue plus tard.
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _showMessage(
+                'Pointage par empreinte : bientôt disponible.',
+                Colors.blueGrey,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(
+                  vertical: 13,
+                  horizontal: 5,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.fingerprint_rounded,
+                      size: 20,
+                      color: Colors.white38,
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Empreinte',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white38,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],

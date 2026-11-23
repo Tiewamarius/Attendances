@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:attendance/core/offline/kiosk_directory.dart';
 import 'package:attendance/models/kiosk_model.dart';
 import 'package:attendance/services/kiosk/kiosk_service.dart';
 import 'package:flutter/foundation.dart';
@@ -252,7 +253,7 @@ class KioskController extends ChangeNotifier {
   // ============================================================
 
   Future<Map<String, dynamic>?> checkPin({
-    required String employeeCode,
+    String? employeeCode,
     required String pin,
   }) async {
     try {
@@ -327,6 +328,9 @@ class KioskController extends ChangeNotifier {
     _heartbeatTimer = null;
 
     await _service.logout();
+
+    // Annuaire hors ligne (empreintes QR/PIN) : effacé avec la session.
+    await KioskDirectory.instance.clear();
 
     _kiosk = null;
 

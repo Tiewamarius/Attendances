@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:attendance/core/auth/auth_service.dart';
+import 'package:attendance/core/offline/read_cache.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:attendance/models/dashboard_model.dart';
 import 'package:attendance/models/department_model.dart';
@@ -44,9 +45,12 @@ class UserService {
 
   static Future<UserModel?> getProfile() async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.dashboard),
-        headers: await _headers(),
+      final response = await ReadCache.cachedGet(
+        'dashboard',
+        () async => http.get(
+          Uri.parse(ApiConfig.dashboard),
+          headers: await _headers(),
+        ),
       );
 
       if (response.statusCode != 200) {
@@ -90,9 +94,12 @@ Future<AdminDashboardModel> getDashboard() async {
         throw Exception('Session expirée.');
       }
 
-      final response = await http.get(
-        Uri.parse(ApiConfig.dashboard),
-        headers: await AuthService.userHeaders(token: token),
+      final response = await ReadCache.cachedGet(
+        'dashboard',
+        () async => http.get(
+          Uri.parse(ApiConfig.dashboard),
+          headers: await AuthService.userHeaders(token: token),
+        ),
       );
 
       debugPrint(
@@ -136,10 +143,13 @@ Future<AdminDashboardModel> getDashboard() async {
 
 static Future<List<RoleModel>> getRoles() async {
   try {
-    final response = await http.get(
-      Uri.parse(ApiConfig.roles),
-      headers: await _headers(),
-    );
+    final response = await ReadCache.cachedGet(
+        'roles',
+        () async => http.get(
+          Uri.parse(ApiConfig.roles),
+          headers: await _headers(),
+        ),
+      );
 
     if (response.statusCode != 200) {
       return [];
@@ -182,9 +192,12 @@ static Future<List<RoleModel>> getRoles() async {
 
   static Future<List<DepartmentModel>> getDepartments() async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.departments),
-        headers: await _headers(),
+      final response = await ReadCache.cachedGet(
+        'departments',
+        () async => http.get(
+          Uri.parse(ApiConfig.departments),
+          headers: await _headers(),
+        ),
       );
 
       if (response.statusCode != 200) {
@@ -230,11 +243,14 @@ static Future<List<RoleModel>> getRoles() async {
     int id,
   ) async {
     try {
-      final response = await http.get(
-        Uri.parse(
+      final response = await ReadCache.cachedGet(
+        'department_$id',
+        () async => http.get(
+          Uri.parse(
           ApiConfig.department(id),
         ),
-        headers: await _headers(),
+          headers: await _headers(),
+        ),
       );
 
       if (response.statusCode != 200) {
@@ -383,9 +399,12 @@ static Future<List<RoleModel>> getRoles() async {
 
   static Future<List<UserModel>> getUsers() async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.users),
-        headers: await _headers(),
+      final response = await ReadCache.cachedGet(
+        'users',
+        () async => http.get(
+          Uri.parse(ApiConfig.users),
+          headers: await _headers(),
+        ),
       );
 
       if (response.statusCode != 200) {
@@ -431,9 +450,12 @@ static Future<List<RoleModel>> getRoles() async {
     int id,
   ) async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.user(id)),
-        headers: await _headers(),
+      final response = await ReadCache.cachedGet(
+        'user_$id',
+        () async => http.get(
+          Uri.parse(ApiConfig.user(id)),
+          headers: await _headers(),
+        ),
       );
 
       if (response.statusCode != 200) {

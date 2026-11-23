@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:attendance/core/auth/auth_service.dart';
+import 'package:attendance/core/offline/read_cache.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:attendance/models/kiosk_model.dart';
 import 'package:flutter/foundation.dart';
@@ -48,9 +49,12 @@ class KioskService {
 
   static Future<List<KioskModel>> getKiosks() async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.kiosks),
-        headers: await _headers(),
+      final response = await ReadCache.cachedGet(
+        'admin_kiosks',
+        () async => http.get(
+          Uri.parse(ApiConfig.kiosks),
+          headers: await _headers(),
+        ),
       );
 
       debugPrint(
@@ -136,9 +140,12 @@ class KioskService {
     int id,
   ) async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.kiosk(id)),
-        headers: await _headers(),
+      final response = await ReadCache.cachedGet(
+        'admin_kiosk_$id',
+        () async => http.get(
+          Uri.parse(ApiConfig.kiosk(id)),
+          headers: await _headers(),
+        ),
       );
 
       debugPrint(
@@ -347,9 +354,12 @@ class KioskService {
     int id,
   ) async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.kioskLogs(id)),
-        headers: await _headers(),
+      final response = await ReadCache.cachedGet(
+        'admin_kiosk_logs_$id',
+        () async => http.get(
+          Uri.parse(ApiConfig.kioskLogs(id)),
+          headers: await _headers(),
+        ),
       );
 
       debugPrint(

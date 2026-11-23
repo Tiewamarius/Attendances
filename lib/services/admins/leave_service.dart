@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:attendance/core/auth/auth_service.dart';
+import 'package:attendance/core/offline/read_cache.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:attendance/models/leave_model..dart';
 import 'package:http/http.dart' as http;
@@ -22,10 +23,13 @@ class LeaveService {
   // ============================================================
 
   static Future<List<LeaveModel>> getLeaves() async {
-    final response = await http.get(
-      Uri.parse(ApiConfig.leaves),
-      headers: await _headers(),
-    );
+    final response = await ReadCache.cachedGet(
+        'admin_leaves',
+        () async => http.get(
+          Uri.parse(ApiConfig.leaves),
+          headers: await _headers(),
+        ),
+      );
 
     if (response.statusCode != 200) {
       throw Exception(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:attendance/core/auth/auth_service.dart';
+import 'package:attendance/core/offline/read_cache.dart';
 import 'package:attendance/core/network/api_endpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -178,9 +179,12 @@ class _EmployeesPageState extends State<EmployeesPage> {
         return;
       }
 
-      final response = await http.get(
-        Uri.parse(ApiConfig.employees),
-        headers: await AuthService.userHeaders(json: true, token: token),
+      final response = await ReadCache.cachedGet(
+        'admin_employees',
+        () async => http.get(
+          Uri.parse(ApiConfig.employees),
+          headers: await AuthService.userHeaders(json: true, token: token),
+        ),
       );
 
       if (!mounted) return;

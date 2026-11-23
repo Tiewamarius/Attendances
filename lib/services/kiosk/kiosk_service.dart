@@ -16,6 +16,78 @@ class KioskService {
   static const String kioskTokenKey = 'kiosk_token';
   static const String kioskDataKey = 'kiosk_data';
 
+  /// Délai max d'une requête : au-delà, le kiosk passe hors ligne.
+  static const Duration _requestTimeout = Duration(seconds: 8);
+
+  // ============================================================
+  // KIOSK EN CACHE (démarrage hors ligne)
+  // ============================================================
+
+  Future<KioskModel?> getCachedKiosk() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(kioskDataKey);
+
+    if (raw == null || raw.isEmpty) return null;
+
+    try {
+      return KioskModel.fromJson(
+        Map<String, dynamic>.from(jsonDecode(raw)),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================
+  // SYNCHRONISATION DES POINTAGES HORS LIGNE
+  // ============================================================
+
+  /// Retourne un résultat par pointage traité :
+  /// { client_id, status: 'synced'|'rejected', message, employee }.
+  Future<List<Map<String, dynamic>>> syncPunches(
+    List<Map<String, dynamic>> items,
+  ) async {
+    final response = await _authorizedPost(
+      ApiConfig.kioskSync,
+      {'items': items},
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractErrorMessage(response));
+    }
+
+    final data = _decodeMap(response)['data'];
+
+    return data is List
+        ? data
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList()
+        : <Map<String, dynamic>>[];
+  }
+
+  // ============================================================
+  // ANNUAIRE HORS LIGNE
+  // ============================================================
+
+  /// Jeu de données (empreintes QR/PIN, état du jour) pour reconnaître
+  /// les employés sans réseau. Voir KioskDirectory.
+  Future<Map<String, dynamic>> getSyncData() async {
+    final response = await _authorizedGet(ApiConfig.kioskSyncData);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractErrorMessage(response));
+    }
+
+    final data = _decodeMap(response)['data'];
+
+    if (data is! Map) {
+      throw Exception('Réponse serveur invalide.');
+    }
+
+    return Map<String, dynamic>.from(data);
+  }
+
   // ============================================================
   // LOGIN KIOSK
   // ============================================================
@@ -427,21 +499,14 @@ class KioskService {
   // PIN EMPLOYEE
   // ============================================================
 
+  /// Le PIN est unique dans l'organisation : il identifie seul
+  /// l'employé, aucun code employé n'est envoyé.
   Future<Map<String, dynamic>> checkPin({
-    required String employeeCode,
     required String pin,
+    String? employeeCode,
   }) async {
-    final cleanEmployeeCode =
-        employeeCode.trim();
-
     final cleanPin =
         pin.trim();
-
-    if (cleanEmployeeCode.isEmpty) {
-      throw Exception(
-        'Le code employé est obligatoire.',
-      );
-    }
 
     if (cleanPin.isEmpty) {
       throw Exception(
@@ -453,17 +518,14 @@ class KioskService {
       'KIOSK CHECK PIN',
     );
 
-    debugPrint(
-      'EMPLOYEE CODE: $cleanEmployeeCode',
-    );
-
     final response =
         await _authorizedPost(
       ApiConfig.kioskPin,
       {
-        'employee_code':
-            cleanEmployeeCode,
         'pin': cleanPin,
+        // Seulement si le PIN est partagé entre plusieurs employés.
+        if (employeeCode != null && employeeCode.trim().isNotEmpty)
+          'employee_code': employeeCode.trim(),
       },
     );
 
@@ -479,6 +541,40 @@ class KioskService {
     }
 
     return _decodeMap(response);
+  }
+
+  // ============================================================
+  // SCAN EVENTS (QR scanné avec le téléphone de l'employé)
+  // ============================================================
+
+  /// Sans [afterId] : retourne seulement `last_id` (amorçage).
+  /// Avec [afterId] : retourne les nouveaux pointages.
+  Future<({int lastId, List<Map<String, dynamic>> events})>
+      getScanEvents({int? afterId}) async {
+    final url = afterId == null
+        ? ApiConfig.kioskScanEvents
+        : '${ApiConfig.kioskScanEvents}?after=$afterId';
+
+    final response = await _authorizedGet(url);
+
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300) {
+      throw Exception(_extractErrorMessage(response));
+    }
+
+    final body = _decodeMap(response);
+
+    final rawEvents = body['data'];
+
+    return (
+      lastId: int.tryParse('${body['last_id']}') ?? 0,
+      events: rawEvents is List
+          ? rawEvents
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[],
+    );
   }
 
   // ============================================================
@@ -585,7 +681,7 @@ class KioskService {
         'Authorization':
             'Bearer $token',
       },
-    );
+    ).timeout(_requestTimeout);
   }
 
   // ============================================================
@@ -617,7 +713,7 @@ class KioskService {
             'Bearer $token',
       },
       body: jsonEncode(data),
-    );
+    ).timeout(_requestTimeout);
   }
 
   // ============================================================

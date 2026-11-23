@@ -46,7 +46,7 @@ dependencies:
   # HTTP
   dio: ^5.9.0
 
-  device_info_plus: ^12.1.0
+  device_info_plus: ^13.2.0
   
   uuid: ^4.5.1
   # Local Storage
@@ -90,6 +90,8 @@ dependencies:
 
   fl_chart: ^1.2.0
   responsive: ^0.3.11+11
+  flutter_secure_storage: ^11.2.0
+  crypto: ^3.0.8
 
 dev_dependencies:
   flutter_test:

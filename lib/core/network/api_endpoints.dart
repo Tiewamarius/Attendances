@@ -9,7 +9,7 @@ class ApiConfig {
 
   /// Production
   static const String productionUrl =
-      'https://ekklesiaciel.com/api/v1';
+      'https://attendance.odedis.com/api/v1';
 
   /// Flutter Web en développement
   static const String webLocalUrl =
@@ -21,7 +21,7 @@ class ApiConfig {
 
   /// Téléphone physique connecté au même réseau que le PC
   static const String physicalDeviceUrl =
-      'http://192.168.1.9:8000/api/v1';
+      'http://192.168.1.26:8000/api/v1';
 
   /// URL utilisée par l'application
   static String get baseUrl {
@@ -247,6 +247,21 @@ class ApiConfig {
   static String get kioskAttendanceQr =>
       '$baseUrl/kiosk/attendance-qr';
 
+  /// POST /kiosk/sync
+  /// Synchronisation des pointages faits hors ligne.
+  static String get kioskSync =>
+      '$baseUrl/kiosk/sync';
+
+  /// GET /kiosk/sync/data
+  /// Annuaire (QR/PIN) que le kiosk garde pour travailler hors ligne.
+  static String get kioskSyncData =>
+      '$baseUrl/kiosk/sync/data';
+
+  /// GET /kiosk/scan-events?after={id}
+  /// Pointages faits avec le téléphone (QR du kiosk).
+  static String get kioskScanEvents =>
+      '$baseUrl/kiosk/scan-events';
+
   /// POST /kiosk/heartbeat
   static String get kioskHeartbeat =>
       '$baseUrl/kiosk/heartbeat';
@@ -270,6 +285,12 @@ class ApiConfig {
   // ========================================================================
   // QR EMPLOYÉ
   // ========================================================================
+
+  /// GET /my-qr — QR personnel de l'employé connecté
+  static String get myQr => '$baseUrl/my-qr';
+
+  /// POST /my-qr/refresh — révoque l'ancien QR et en crée un nouveau
+  static String get myQrRefresh => '$baseUrl/my-qr/refresh';
 
   /// POST /qr/generate
   static String get qrGenerate =>
